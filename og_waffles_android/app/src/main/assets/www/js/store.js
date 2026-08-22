@@ -30,10 +30,7 @@ class Store {
             m.id && (m.id.startsWith("MENU-") || m.name.includes("Belgian Gold") || m.name.includes("Royal Golden") || m.name.includes("Truffle Gold") || m.name.includes("Velvet Caramel"))
           );
 
-          if (!this.state.menuVersion || this.state.menuVersion < 4 || hasOldDemoItems || !Array.isArray(this.state.categories) || this.state.categories.length < 10) {
-            this.state.categories = JSON.parse(JSON.stringify(INITIAL_DATA.categories || []));
-            this.state.menuItems = JSON.parse(JSON.stringify(INITIAL_DATA.menuItems || []));
-            this.state.ingredients = JSON.parse(JSON.stringify(INITIAL_DATA.ingredients || []));
+          if (!this.state.menuVersion || this.state.menuVersion < 4 || hasOldDemoItems) {
             this.state.menuVersion = 4;
             this.saveState();
           }
