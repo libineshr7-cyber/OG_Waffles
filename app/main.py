@@ -1,6 +1,10 @@
+import os
+from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from app.database import init_indexes
 from app.config import settings
 from app.routes import (
@@ -50,6 +54,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# API Routers
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(categories_router)
@@ -64,13 +69,40 @@ app.include_router(reports_router)
 app.include_router(dashboard_router)
 
 
+# ── Frontend Static Files Mounting ──
+repo_root = Path(__file__).resolve().parent.parent
+frontend_dir = repo_root / "og_waffles_pos_new"
+if not frontend_dir.exists():
+    frontend_dir = repo_root
+
+if (frontend_dir / "css").exists():
+    app.mount("/css", StaticFiles(directory=str(frontend_dir / "css")), name="css")
+if (frontend_dir / "js").exists():
+    app.mount("/js", StaticFiles(directory=str(frontend_dir / "js")), name="js")
+if (frontend_dir / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=str(frontend_dir / "assets")), name="assets")
+
+
+@app.get("/app", tags=["Frontend"])
+@app.get("/pos", tags=["Frontend"])
+def serve_web_pos():
+    index_file = frontend_dir / "index.html"
+    if index_file.exists():
+        return FileResponse(str(index_file))
+    return {"error": "Frontend index.html not found"}
+
+
 @app.get("/", tags=["Root"])
 def root():
+    index_file = frontend_dir / "index.html"
+    if index_file.exists():
+        return FileResponse(str(index_file))
     return {
         "app": "OG Waffles POS API",
         "version": "5.0.0",
         "database": "mongodb",
         "status": "online",
+        "web_pos": "/app",
         "docs": "/docs",
         "health": "/api/health"
     }
