@@ -2,8 +2,8 @@
 window.APP_CONFIG = {
   APP_NAME: "OG Waffles & Fried Chicken POS",
   VERSION: "5.0.0",
-  // Default Backend URL: Replace with your actual Render service URL after deploying to Render
-  DEFAULT_API_URL: "https://og-waffles-backend.onrender.com",
+  // Live Deployed Render Backend URL
+  DEFAULT_API_URL: "https://og-waffles.onrender.com",
   LOCAL_API_URL: "http://127.0.0.1:8001",
 
   // Dynamic API Base URL resolver: Checks localStorage first, then default URL
@@ -12,10 +12,7 @@ window.APP_CONFIG = {
     if (saved && saved.trim()) {
       return saved.trim().replace(/\/+$/, "");
     }
-    // Check if running on localhost or file protocol
-    if (window.location && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
-      return this.LOCAL_API_URL;
-    }
+    // If running inside Android WebView or production web, return live Render backend
     return this.DEFAULT_API_URL;
   },
 

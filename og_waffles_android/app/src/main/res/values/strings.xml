@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">OG Waffles POS</string>
-    <!-- Default Render Cloud Backend URL -->
-    <string name="default_server_url">https://og-waffles-backend.onrender.com</string>
+    <!-- Live Render Cloud Backend URL -->
+    <string name="default_server_url">https://og-waffles.onrender.com</string>
     <string name="local_server_url">http://10.0.2.2:8001</string>
     <string name="network_error_title">Connection Error</string>
     <string name="network_error_msg">Unable to connect to the backend server. Please check your internet connection or verify the server address.</string>
