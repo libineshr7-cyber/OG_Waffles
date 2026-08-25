@@ -56,45 +56,6 @@ function renderRoleSelectScreen() {
             </div>
           </button>
         </div>
-
-        <!-- Server Connection Status & Config Button -->
-        <div class="pt-2 border-t border-gray-800 flex items-center justify-between text-[11px] text-gray-500">
-          <div class="flex items-center gap-1.5 truncate max-w-[240px]">
-            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block"></span>
-            <span class="truncate" title="${api.baseUrl}">Server: ${api.baseUrl.replace(/^https?:\/\//, '')}</span>
-          </div>
-          <button type="button" onclick="openServerConfigModal()" class="text-[#D4AF37] hover:underline font-medium flex items-center gap-1">
-            <i class="fas fa-cog text-[10px]"></i> Change
-          </button>
-        </div>
-      </div>
-
-      <!-- Server Config Modal -->
-      <div id="server-config-modal" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-        <div class="glass-card max-w-sm w-full p-6 space-y-4 border border-[#D4AF37]/40 shadow-2xl">
-          <div class="flex items-center justify-between border-b border-gray-800 pb-3">
-            <h3 class="text-sm font-bold text-[#D4AF37] flex items-center gap-2">
-              <i class="fas fa-server"></i> Server Configuration
-            </h3>
-            <button onclick="closeServerConfigModal()" class="text-gray-500 hover:text-white">
-              <i class="fas fa-times"></i>
-            </button>
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-gray-400 mb-1">Backend API URL</label>
-            <input id="server-url-input" type="url" value="${api.baseUrl}" placeholder="https://og-waffles-backend.onrender.com" class="input-gold text-xs">
-            <p class="text-[10px] text-gray-500 mt-1">Enter your deployed Render backend URL or local server IP.</p>
-          </div>
-          <div id="server-test-result" class="hidden text-xs p-2 rounded"></div>
-          <div class="flex gap-2">
-            <button type="button" onclick="testServerConnection()" class="flex-1 py-2 px-3 rounded-lg bg-gray-800 hover:bg-gray-700 text-xs text-white border border-gray-700">
-              <i class="fas fa-plug mr-1"></i> Test Connection
-            </button>
-            <button type="button" onclick="saveServerConfig()" class="flex-1 py-2 px-3 rounded-lg bg-gradient-to-r from-[#AA7C11] to-[#D4AF37] text-black font-bold text-xs">
-              <i class="fas fa-save mr-1"></i> Save
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   `;
@@ -103,8 +64,8 @@ function renderRoleSelectScreen() {
 // ─── Stage 2: Login Form (Backend Auth) ───────────────────────────
 function renderLoginFormScreen() {
   const roleColors = {
-    OWNER:   { icon: 'fa-crown',         color: 'text-[#D4AF37]',  border: 'border-[#D4AF37]/50', badge: 'bg-[#D4AF37]/10', label: 'OWNER', defaultUser: 'owner_dev', defaultPass: 'owner123' },
-    CASHIER: { icon: 'fa-cash-register', color: 'text-emerald-400',border: 'border-emerald-500/40',badge: 'bg-emerald-500/10',label: 'CASHIER', defaultUser: 'cashier_dev', defaultPass: 'cashier123' }
+    OWNER:   { icon: 'fa-crown',         color: 'text-[#D4AF37]',  border: 'border-[#D4AF37]/50', badge: 'bg-[#D4AF37]/10', label: 'OWNER', defaultUser: 'owner_dev' },
+    CASHIER: { icon: 'fa-cash-register', color: 'text-emerald-400',border: 'border-emerald-500/40',badge: 'bg-emerald-500/10',label: 'CASHIER', defaultUser: 'cashier_dev' }
   };
   const rc = roleColors[selectedRole] || roleColors.OWNER;
 
@@ -163,38 +124,9 @@ function renderLoginFormScreen() {
             <i class="fas fa-sign-in-alt mr-1"></i> Access ${rc.label} Portal
           </button>
         </form>
-
-        <!-- Quick Demo Credentials -->
-        <div class="p-3 rounded-xl bg-black/40 border border-[#D4AF37]/20 text-[11px] text-gray-400 space-y-1.5">
-          <p class="font-bold text-[#D4AF37] text-xs">Development Credentials:</p>
-          <div class="grid grid-cols-2 gap-2 text-center mt-1">
-            <div class="bg-black/50 rounded-lg p-2 border border-[#D4AF37]/20 cursor-pointer hover:bg-[#D4AF37]/10" onclick="fillCredentials('owner_dev', 'owner123')">
-              <i class="fas fa-crown text-[#D4AF37] block mb-1"></i>
-              <p class="font-bold text-white text-[10px]">OWNER</p>
-              <code class="text-[#D4AF37] font-mono text-[9px] block">owner_dev</code>
-              <code class="text-gray-400 font-mono text-[9px] block">owner123</code>
-            </div>
-            <div class="bg-black/50 rounded-lg p-2 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/10" onclick="fillCredentials('cashier_dev', 'cashier123')">
-              <i class="fas fa-cash-register text-emerald-400 block mb-1"></i>
-              <p class="font-bold text-white text-[10px]">CASHIER</p>
-              <code class="text-emerald-400 font-mono text-[9px] block">cashier_dev</code>
-              <code class="text-gray-400 font-mono text-[9px] block">cashier123</code>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   `;
-}
-
-function fillCredentials(username, password) {
-  const uInput = document.getElementById('login-username');
-  const pInput = document.getElementById('login-password');
-  if (uInput) uInput.value = username;
-  if (pInput) {
-    pInput.value = password;
-    pInput.focus();
-  }
 }
 
 function choosePortal(role) {
@@ -266,59 +198,6 @@ async function handleLoginSubmit(e) {
       submitBtn.disabled = false;
       submitBtn.innerHTML = `<i class="fas fa-sign-in-alt mr-1"></i> Access ${selectedRole} Portal`;
     }
-  }
-}
-
-// ─── Server Config Modal Functions ────────────────────────────────
-function openServerConfigModal() {
-  const modal = document.getElementById('server-config-modal');
-  if (modal) modal.classList.remove('hidden');
-}
-
-function closeServerConfigModal() {
-  const modal = document.getElementById('server-config-modal');
-  if (modal) modal.classList.add('hidden');
-}
-
-async function testServerConnection() {
-  const input = document.getElementById('server-url-input');
-  const resultDiv = document.getElementById('server-test-result');
-  if (!input || !resultDiv) return;
-
-  const testUrl = input.value.trim().replace(/\/+$/, '');
-  resultDiv.className = 'text-xs p-2 rounded bg-yellow-500/10 text-yellow-400 border border-yellow-500/30';
-  resultDiv.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Testing connection to ' + testUrl + '...';
-  resultDiv.classList.remove('hidden');
-
-  try {
-    const res = await fetch(`${testUrl}/api/health`, { method: 'GET' });
-    const data = await res.json();
-    if (res.ok && data.status === 'healthy') {
-      resultDiv.className = 'text-xs p-2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
-      resultDiv.innerHTML = `<i class="fas fa-check-circle mr-1"></i> Connected! Database: ${data.database || 'MongoDB'} (${data.mongo_status || 'OK'})`;
-    } else {
-      resultDiv.className = 'text-xs p-2 rounded bg-red-500/10 text-red-400 border border-red-500/30';
-      resultDiv.innerHTML = `<i class="fas fa-exclamation-triangle mr-1"></i> Server responded with status ${res.status}`;
-    }
-  } catch (err) {
-    resultDiv.className = 'text-xs p-2 rounded bg-red-500/10 text-red-400 border border-red-500/30';
-    resultDiv.innerHTML = `<i class="fas fa-times-circle mr-1"></i> Connection failed: ${err.message}`;
-  }
-}
-
-function saveServerConfig() {
-  const input = document.getElementById('server-url-input');
-  if (!input) return;
-  const newUrl = input.value.trim().replace(/\/+$/, '');
-  if (newUrl) {
-    if (typeof window.APP_CONFIG !== 'undefined' && window.APP_CONFIG.setApiBaseUrl) {
-      window.APP_CONFIG.setApiBaseUrl(newUrl);
-    } else {
-      localStorage.setItem('ogw_api_base_url', newUrl);
-      api.baseUrl = newUrl;
-    }
-    closeServerConfigModal();
-    if (typeof render === 'function') render();
   }
 }
 
