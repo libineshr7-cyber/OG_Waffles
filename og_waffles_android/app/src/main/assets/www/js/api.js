@@ -356,6 +356,11 @@ const api = {
       return await api.request(`/api/sales/${encodeURIComponent(id)}/cancel`, {
         method: "POST"
       });
+    },
+    async resetToday() {
+      return await api.request("/api/sales/today/reset", {
+        method: "DELETE"
+      });
     }
   },
 

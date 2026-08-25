@@ -15,7 +15,7 @@ from app.auth.dependencies import get_current_user, require_owner, require_authe
 router = APIRouter(prefix="/api/sales", tags=["Sales & Billing"])
 
 
-def save_invoice_to_oglogs(sale: dict, items: list, payments: list, customer_name: str = "Walk-in Guest"):
+def save_invoice_to_oglogs(sale: dict, items: list, payments: list, customer_name: str = "Walk-in Guest", order_type: str = "Walk-in"):
     try:
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         oglogs_dir = os.path.join(base_dir, "OGLOGS")
@@ -34,6 +34,7 @@ def save_invoice_to_oglogs(sale: dict, items: list, payments: list, customer_nam
             "==================================================",
             f"Invoice No : {inv_no}",
             f"Date / Time: {date_str} {time_str}",
+            f"Order Type : {order_type}",
             f"Customer   : {customer_name}",
             f"Payment    : {pay_str}",
             "--------------------------------------------------",
@@ -52,9 +53,9 @@ def save_invoice_to_oglogs(sale: dict, items: list, payments: list, customer_nam
             f"{'Discount:':<38} ₹{float(sale.get('discount', 0.0)):>8.2f}",
             f"{'Tax / GST:':<38} ₹{float(sale.get('tax', 0.0)):>8.2f}",
             "==================================================",
-            f"{'GRAND TOTAL:':<38} ₹{float(sale.get('total', 0.0)):>8.2f}",
+            f"{'Total:':<38} ₹{float(sale.get('total', 0.0)):>8.2f}",
             "==================================================",
-            "      Thank you for visiting OG Waffles!          ",
+            "          Thank you for dining with OG            ",
             "==================================================",
         ])
 
@@ -256,10 +257,12 @@ def create_sale(
         stock_movements_to_add.append(movement)
 
     # 5. Create Sale Record
+    order_type_val = getattr(sale_in, "order_type", None) or "Walk-in"
     new_sale = {
         "id": sale_id,
         "invoice_number": invoice_number,
         "customer_id": final_customer_id,
+        "order_type": order_type_val,
         "subtotal": subtotal,
         "discount": discount,
         "tax": tax,
@@ -309,7 +312,7 @@ def create_sale(
         c_doc = db["customers"].find_one({"id": final_customer_id})
         if c_doc and c_doc.get("name"):
             cust_name_log = c_doc["name"]
-    save_invoice_to_oglogs(new_sale, sale_items_to_add, payments_to_add, cust_name_log)
+    save_invoice_to_oglogs(new_sale, sale_items_to_add, payments_to_add, cust_name_log, order_type_val)
 
     result = clean_doc(new_sale)
     result["items"] = clean_docs(sale_items_to_add)
@@ -405,6 +408,35 @@ def get_today_sales(
         "upi_total": round(upi_total, 2),
         "card_total": round(card_total, 2),
         "split_total": round(split_total, 2)
+    }
+
+
+@router.delete("/today/reset", summary="Reset / Delete Today's Sales Collection (Owner Only)")
+def reset_today_sales(
+    db = Depends(get_db),
+    current_user: dict = Depends(require_owner)
+):
+    today = date.today()
+    query = {
+        "sale_date": {
+            "$gte": to_bson_datetime(today),
+            "$lte": datetime.combine(today, datetime.max.time())
+        }
+    }
+    sales_today = list(db["sales"].find(query))
+    sale_ids = [s["id"] for s in sales_today]
+    deleted_count = len(sale_ids)
+
+    if sale_ids:
+        db["sales"].delete_many({"id": {"$in": sale_ids}})
+        db["sale_items"].delete_many({"sale_id": {"$in": sale_ids}})
+        db["payments"].delete_many({"sale_id": {"$in": sale_ids}})
+
+    return {
+        "success": True,
+        "message": f"Successfully reset today's sales collection ({deleted_count} orders deleted).",
+        "deleted_count": deleted_count,
+        "reset_date": str(today)
     }
 
 

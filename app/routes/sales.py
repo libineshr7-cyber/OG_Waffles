@@ -411,6 +411,35 @@ def get_today_sales(
     }
 
 
+@router.delete("/today/reset", summary="Reset / Delete Today's Sales Collection (Owner Only)")
+def reset_today_sales(
+    db = Depends(get_db),
+    current_user: dict = Depends(require_owner)
+):
+    today = date.today()
+    query = {
+        "sale_date": {
+            "$gte": to_bson_datetime(today),
+            "$lte": datetime.combine(today, datetime.max.time())
+        }
+    }
+    sales_today = list(db["sales"].find(query))
+    sale_ids = [s["id"] for s in sales_today]
+    deleted_count = len(sale_ids)
+
+    if sale_ids:
+        db["sales"].delete_many({"id": {"$in": sale_ids}})
+        db["sale_items"].delete_many({"sale_id": {"$in": sale_ids}})
+        db["payments"].delete_many({"sale_id": {"$in": sale_ids}})
+
+    return {
+        "success": True,
+        "message": f"Successfully reset today's sales collection ({deleted_count} orders deleted).",
+        "deleted_count": deleted_count,
+        "reset_date": str(today)
+    }
+
+
 @router.get("/summary", response_model=SalesSummary, summary="Date-Range Sales Metrics Summary")
 def get_sales_summary(
     date_from: Optional[date] = None,
