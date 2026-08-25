@@ -48,7 +48,8 @@ function renderTodaySalesView() {
     net_sales: 0,
     cash_total: 0,
     upi_total: 0,
-    card_total: 0
+    card_total: 0,
+    split_total: 0
   };
 
   const totalSales = summary.net_sales || 0;
@@ -56,6 +57,7 @@ function renderTodaySalesView() {
   const cashSales = summary.cash_total || 0;
   const upiSales = summary.upi_total || 0;
   const cardSales = summary.card_total || 0;
+  const splitSales = summary.split_total || 0;
 
   const todayTransactions = _todaySalesList || [];
 
@@ -127,13 +129,13 @@ function renderTodaySalesView() {
         <!-- Card 4: Digital (UPI + Card) -->
         <div class="glass-card p-5 border border-gray-800 space-y-2 relative overflow-hidden">
           <div class="flex items-center justify-between">
-            <span class="text-xs text-gray-400 font-semibold uppercase tracking-wider">UPI &amp; Card Sales</span>
+            <span class="text-xs text-gray-400 font-semibold uppercase tracking-wider">UPI, Card &amp; Split</span>
             <div class="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400">
               <i class="fas fa-mobile-alt text-sm"></i>
             </div>
           </div>
-          <div class="font-heading text-2xl font-black text-purple-300">${formatCurrency(upiSales + cardSales)}</div>
-          <p class="text-[11px] text-gray-400">UPI: ${formatCurrency(upiSales)} &bull; Card: ${formatCurrency(cardSales)}</p>
+          <div class="font-heading text-2xl font-black text-purple-300">${formatCurrency(upiSales + cardSales + splitSales)}</div>
+          <p class="text-[11px] text-gray-400">UPI: ${formatCurrency(upiSales)} &bull; Card: ${formatCurrency(cardSales)} &bull; Split: ${formatCurrency(splitSales)}</p>
         </div>
       </div>
 
@@ -152,6 +154,9 @@ function renderTodaySalesView() {
           </span>
           <span class="px-3 py-1 rounded-lg bg-amber-950/40 border border-amber-500/40 text-amber-300 font-medium">
             <i class="fas fa-credit-card mr-1"></i> Card: <strong class="text-white">${formatCurrency(cardSales)}</strong>
+          </span>
+          <span class="px-3 py-1 rounded-lg bg-indigo-950/40 border border-indigo-500/40 text-indigo-300 font-medium">
+            <i class="fas fa-columns mr-1"></i> Split: <strong class="text-white">${formatCurrency(splitSales)}</strong>
           </span>
         </div>
       </div>

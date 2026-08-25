@@ -4,7 +4,7 @@ let posCart = [];
 let selectedPosCategory = null; // null = Category selection view
 let posSearchQuery = "";
 let appliedDiscountPercent = 0;
-let isTaxEnabled = true;
+let isTaxEnabled = false; // Default OFF — enabled on click
 // Customer details persist across cart updates — cleared only on successful bill
 let posCustName  = '';
 let posCustPhone = '';
@@ -308,10 +308,11 @@ function renderPosView() {
 
         <div class="text-center py-2 bg-black/50 rounded-xl border border-[#D4AF37]/30">
           <span class="text-xs text-gray-400 block">Total Payable Amount</span>
-          <span class="text-3xl font-extrabold text-[#D4AF37] font-heading">${formatCurrency(grandTotal)}</span>
+          <span class="text-3xl font-extrabold text-[#D4AF37] font-heading" id="pos-modal-grand-total">${formatCurrency(grandTotal)}</span>
         </div>
 
-        <div class="grid grid-cols-2 gap-3 text-xs">
+        <!-- 4-Button Payment Method Grid -->
+        <div id="payment-methods-grid" class="grid grid-cols-2 gap-3 text-xs">
           <button id="pay-btn-cash" onclick="completePosOrder('Cash')" class="p-4 rounded-xl bg-black border border-gray-700 hover:border-[#D4AF37] hover:bg-[#D4AF37]/10 flex flex-col items-center gap-2 text-white font-bold transition-all">
             <i class="fas fa-money-bill-wave text-2xl text-emerald-400"></i>
             Cash Payment
@@ -327,10 +328,57 @@ function renderPosView() {
             Card Payment
           </button>
 
-          <button id="pay-btn-split" onclick="completePosOrder('Split')" class="p-4 rounded-xl bg-black border border-gray-700 hover:border-[#D4AF37] hover:bg-[#D4AF37]/10 flex flex-col items-center gap-2 text-white font-bold transition-all">
+          <button id="pay-btn-split" onclick="showSplitPaymentView(${grandTotal})" class="p-4 rounded-xl bg-black border border-gray-700 hover:border-[#D4AF37] hover:bg-[#D4AF37]/10 flex flex-col items-center gap-2 text-white font-bold transition-all">
             <i class="fas fa-columns text-2xl text-blue-400"></i>
             Split Payment
           </button>
+        </div>
+
+        <!-- Split Payment Custom Allocation Panel -->
+        <div id="payment-split-panel" class="hidden space-y-3 text-xs">
+          <div class="bg-black/60 p-3 rounded-xl border border-gray-800 space-y-2">
+            <div class="flex items-center justify-between text-[11px] text-gray-400 border-b border-gray-800 pb-1">
+              <span>Allocate Payment Split</span>
+              <span>Total: <strong class="text-white">${formatCurrency(grandTotal)}</strong></span>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="text-[10px] text-emerald-400 block font-semibold mb-0.5">
+                  <i class="fas fa-money-bill-wave mr-1"></i> Cash Portion (₹)
+                </label>
+                <input type="number" id="split-cash-amt" min="0" max="${grandTotal}" step="1"
+                  value="${Math.round(grandTotal / 2)}"
+                  oninput="handleSplitAmountChange(${grandTotal})"
+                  class="input-gold w-full py-1 px-2 text-xs font-bold">
+              </div>
+              <div>
+                <label class="text-[10px] text-blue-400 block font-semibold mb-0.5">
+                  <select id="split-second-method" onchange="handleSplitAmountChange(${grandTotal})" class="bg-transparent text-blue-400 font-semibold focus:outline-none cursor-pointer">
+                    <option value="UPI" class="bg-black text-white">UPI / QR (₹)</option>
+                    <option value="CARD" class="bg-black text-white">Card (₹)</option>
+                  </select>
+                </label>
+                <input type="number" id="split-second-amt" min="0" max="${grandTotal}" step="1"
+                  value="${grandTotal - Math.round(grandTotal / 2)}"
+                  oninput="handleSplitSecondAmountChange(${grandTotal})"
+                  class="input-gold w-full py-1 px-2 text-xs font-bold">
+              </div>
+            </div>
+
+            <div id="split-validation-msg" class="text-[10px] text-emerald-400 font-semibold text-center pt-1">
+              ✓ Split total matches: ${formatCurrency(grandTotal)}
+            </div>
+          </div>
+
+          <div class="flex gap-2">
+            <button type="button" onclick="hideSplitPaymentView()" class="w-1/3 btn-outline-dark py-2 text-xs">
+              <i class="fas fa-arrow-left mr-1"></i> Back
+            </button>
+            <button type="button" id="confirm-split-btn" onclick="confirmSplitOrder(${grandTotal})" class="w-2/3 btn-gold-solid py-2 text-xs font-bold flex items-center justify-center gap-1.5">
+              <i class="fas fa-check-circle"></i> Complete Split Bill
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -359,11 +407,14 @@ function renderPosView() {
           <p>Powered by Odyssey's Group ERP Software</p>
         </div>
 
-        <div class="flex items-center gap-3 pt-4 no-print border-t border-gray-200">
-          <button onclick="window.print()" class="flex-1 py-2 rounded-lg bg-black text-white font-bold text-xs flex items-center justify-center gap-2 hover:bg-gray-800">
-            <i class="fas fa-print"></i> Print Receipt
+        <div class="flex flex-col sm:flex-row items-center gap-2 pt-4 no-print border-t border-gray-200">
+          <button onclick="printAndDownloadInvoice()" class="w-full sm:flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all">
+            <i class="fas fa-print"></i> <i class="fas fa-file-download"></i> Print &amp; Download Bill (OGLOGS)
           </button>
-          <button onclick="downloadInvoicePdf()" class="flex-1 py-2 rounded-lg bg-[#D4AF37] text-black font-bold text-xs flex items-center justify-center gap-2 hover:brightness-110">
+          <button onclick="window.print()" class="w-full sm:w-auto px-4 py-2.5 rounded-lg bg-black hover:bg-gray-800 text-white font-bold text-xs flex items-center justify-center gap-1.5">
+            <i class="fas fa-print"></i> Print
+          </button>
+          <button onclick="downloadInvoicePdf()" class="w-full sm:w-auto px-4 py-2.5 rounded-lg bg-[#D4AF37] hover:brightness-110 text-black font-bold text-xs flex items-center justify-center gap-1.5">
             <i class="fas fa-file-pdf"></i> Download PDF
           </button>
         </div>
@@ -700,28 +751,136 @@ function showStockErrorModal(shortages) {
 function openPaymentModal(total) {
   if (posCart.length === 0) return;
 
-  // PRIMARY VALIDATION GATE — stock check happens HERE,
-  // before the payment modal is ever shown.
+  // PRIMARY VALIDATION GATE — stock check happens HERE
   const validation = validateCartStock();
 
   if (!validation.ok) {
-    // Block the transaction immediately — show the styled error modal
     showStockErrorModal(validation.shortages);
-    return; // payment modal never opens
+    return;
   }
 
-  // Stock is sufficient — open the payment method selector
+  hideSplitPaymentView();
   document.getElementById('payment-modal').classList.remove('hidden');
 }
 
 function closePaymentModal() {
   document.getElementById('payment-modal').classList.add('hidden');
+  hideSplitPaymentView();
+}
+
+function showSplitPaymentView(grandTotal) {
+  const grid = document.getElementById('payment-methods-grid');
+  const panel = document.getElementById('payment-split-panel');
+  if (grid) grid.classList.add('hidden');
+  if (panel) {
+    panel.classList.remove('hidden');
+    const cashInput = document.getElementById('split-cash-amt');
+    const secondInput = document.getElementById('split-second-amt');
+    if (cashInput && secondInput) {
+      const half = Math.round(grandTotal / 2);
+      cashInput.value = half;
+      secondInput.value = parseFloat((grandTotal - half).toFixed(2));
+    }
+    handleSplitAmountChange(grandTotal);
+  }
+}
+
+function hideSplitPaymentView() {
+  const grid = document.getElementById('payment-methods-grid');
+  const panel = document.getElementById('payment-split-panel');
+  if (grid) grid.classList.remove('hidden');
+  if (panel) panel.classList.add('hidden');
+}
+
+function handleSplitAmountChange(grandTotal) {
+  const cashInput = document.getElementById('split-cash-amt');
+  const secondInput = document.getElementById('split-second-amt');
+  const msg = document.getElementById('split-validation-msg');
+  const btn = document.getElementById('confirm-split-btn');
+  if (!cashInput || !secondInput || !msg || !btn) return;
+
+  let cash = parseFloat(cashInput.value) || 0;
+  if (cash < 0) cash = 0;
+  if (cash > grandTotal) cash = grandTotal;
+  cashInput.value = cash;
+
+  const remainder = Math.max(0, grandTotal - cash);
+  secondInput.value = parseFloat(remainder.toFixed(2));
+
+  const totalSplit = cash + remainder;
+  if (Math.abs(totalSplit - grandTotal) <= 0.01) {
+    msg.className = "text-[10px] text-emerald-400 font-semibold text-center pt-1";
+    msg.innerHTML = `✓ Split total matches: ${formatCurrency(grandTotal)}`;
+    btn.disabled = false;
+    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+  } else {
+    msg.className = "text-[10px] text-red-400 font-semibold text-center pt-1";
+    msg.innerHTML = `⚠️ Total is ${formatCurrency(totalSplit)}, must equal ${formatCurrency(grandTotal)}`;
+    btn.disabled = true;
+    btn.classList.add('opacity-50', 'cursor-not-allowed');
+  }
+}
+
+function handleSplitSecondAmountChange(grandTotal) {
+  const cashInput = document.getElementById('split-cash-amt');
+  const secondInput = document.getElementById('split-second-amt');
+  const msg = document.getElementById('split-validation-msg');
+  const btn = document.getElementById('confirm-split-btn');
+  if (!cashInput || !secondInput || !msg || !btn) return;
+
+  let second = parseFloat(secondInput.value) || 0;
+  if (second < 0) second = 0;
+  if (second > grandTotal) second = grandTotal;
+  secondInput.value = second;
+
+  const cash = Math.max(0, grandTotal - second);
+  cashInput.value = parseFloat(cash.toFixed(2));
+
+  const totalSplit = cash + second;
+  if (Math.abs(totalSplit - grandTotal) <= 0.01) {
+    msg.className = "text-[10px] text-emerald-400 font-semibold text-center pt-1";
+    msg.innerHTML = `✓ Split total matches: ${formatCurrency(grandTotal)}`;
+    btn.disabled = false;
+    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+  } else {
+    msg.className = "text-[10px] text-red-400 font-semibold text-center pt-1";
+    msg.innerHTML = `⚠️ Total is ${formatCurrency(totalSplit)}, must equal ${formatCurrency(grandTotal)}`;
+    btn.disabled = true;
+    btn.classList.add('opacity-50', 'cursor-not-allowed');
+  }
+}
+
+async function confirmSplitOrder(grandTotal) {
+  const cashInput = document.getElementById('split-cash-amt');
+  const secondMethodSelect = document.getElementById('split-second-method');
+  const secondInput = document.getElementById('split-second-amt');
+  const cashVal = parseFloat(cashInput ? cashInput.value : 0) || 0;
+  const secondMethod = secondMethodSelect ? secondMethodSelect.value : "UPI";
+  const secondVal = parseFloat(secondInput ? secondInput.value : 0) || 0;
+
+  const splitPayments = [];
+  if (cashVal > 0) {
+    splitPayments.push({
+      payment_method: "CASH",
+      amount: cashVal,
+      reference_number: "Split-Cash"
+    });
+  }
+  if (secondVal > 0) {
+    splitPayments.push({
+      payment_method: secondMethod,
+      amount: secondVal,
+      reference_number: `Split-${secondMethod}`
+    });
+  }
+
+  await completePosOrder('Split', splitPayments);
 }
 
 /* ─── Bill Completion Lock (prevents double-click duplicate bills) ─── */
 let _posOrderInProgress = false;
 
-async function completePosOrder(method) {
+async function completePosOrder(method, splitBreakdown = null) {
   // ── LAYER 1: Double-click / re-entry guard ─────────────────────────
   if (_posOrderInProgress) return;
 
@@ -735,7 +894,7 @@ async function completePosOrder(method) {
   _posOrderInProgress = true;
 
   // ── LAYER 3: Disable all payment buttons & show processing state ────
-  const btnIds = ['pay-btn-cash', 'pay-btn-upi', 'pay-btn-card', 'pay-btn-split'];
+  const btnIds = ['pay-btn-cash', 'pay-btn-upi', 'pay-btn-card', 'pay-btn-split', 'confirm-split-btn'];
   const originalHtmlMap = {};
   btnIds.forEach(id => {
     const btn = document.getElementById(id);
@@ -747,10 +906,10 @@ async function completePosOrder(method) {
     }
   });
 
-  const activeBtnId = `pay-btn-${method.toLowerCase()}`;
+  const activeBtnId = method.toLowerCase() === 'split' ? 'confirm-split-btn' : `pay-btn-${method.toLowerCase()}`;
   const activeBtn = document.getElementById(activeBtnId);
   if (activeBtn) {
-    activeBtn.innerHTML = `<i class="fas fa-circle-notch fa-spin text-2xl text-[#D4AF37]"></i><span class="text-xs font-bold text-[#D4AF37]">Processing...</span>`;
+    activeBtn.innerHTML = `<i class="fas fa-circle-notch fa-spin text-lg text-[#D4AF37]"></i> <span class="text-xs font-bold text-[#D4AF37]">Processing...</span>`;
   }
 
   const state = store.getState();
@@ -777,15 +936,13 @@ async function completePosOrder(method) {
     };
   }
 
-  let backendMethod = method.toUpperCase();
-  if (backendMethod === 'SPLIT') backendMethod = 'CASH';
-
   const payload = {
     customer_id: posSelectedCustomerId || null,
     customer: customerPayload,
     items: items,
-    payment_method: backendMethod,
+    payment_method: method.toUpperCase(),
     payment_reference: "",
+    split_payments: (method.toUpperCase() === 'SPLIT' && splitBreakdown) ? splitBreakdown : null,
     discount: parseFloat(discountAmt.toFixed(2)),
     tax: parseFloat(taxAmount.toFixed(2))
   };
@@ -858,7 +1015,7 @@ function displayInvoiceModal(order, paymentMethodName) {
 
   let payMethod = paymentMethodName || "Cash";
   if (order.payments && order.payments.length > 0) {
-    payMethod = order.payments.map(p => p.payment_method).join(", ");
+    payMethod = order.payments.map(p => `${p.payment_method} (₹${parseFloat(p.amount || 0).toFixed(2)})`).join(", ");
   }
 
   const itemsList = order.items || [];
@@ -875,7 +1032,7 @@ function displayInvoiceModal(order, paymentMethodName) {
       </div>
       <div class="text-right">
         <p><strong>Customer:</strong> ${custName}</p>
-        <p><strong>Payment:</strong> ${payMethod}</p>
+        <p><strong>Payment:</strong> <span class="font-semibold text-emerald-800">${payMethod}</span></p>
       </div>
     </div>
 
@@ -932,4 +1089,13 @@ function downloadInvoicePdf() {
     jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
   };
   html2pdf().set(opt).from(element).save();
+}
+
+function printAndDownloadInvoice() {
+  // 1. Trigger local PDF invoice download in browser
+  downloadInvoicePdf();
+  // 2. Open browser printer dialog
+  setTimeout(() => {
+    window.print();
+  }, 350);
 }

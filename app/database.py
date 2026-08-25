@@ -6,6 +6,18 @@ from app.config import settings
 
 logger = logging.getLogger("og_waffles.database")
 
+# Ensure reliable DNS resolution for MongoDB Atlas SRV records
+try:
+    import dns.resolver
+    resolver = dns.resolver.Resolver(configure=True)
+    if not resolver.nameservers:
+        resolver.nameservers = ['8.8.8.8', '1.1.1.1']
+    else:
+        resolver.nameservers = list(set(resolver.nameservers + ['8.8.8.8', '1.1.1.1']))
+    dns.resolver.default_resolver = resolver
+except Exception as dns_e:
+    logger.debug(f"DNS resolver configuration notice: {dns_e}")
+
 # Initialize MongoClient with connection pooling and timeouts
 client = None
 db = None
@@ -58,6 +70,15 @@ def clean_doc(doc):
     doc_copy = dict(doc)
     if "_id" in doc_copy:
         del doc_copy["_id"]
+    for k, v in list(doc_copy.items()):
+        if isinstance(v, datetime) and (k.endswith("_date") or k == "date"):
+            doc_copy[k] = v.date()
+        elif isinstance(v, str) and (k.endswith("_date") or k == "date"):
+            try:
+                if len(v) == 10 and v[4] == '-' and v[7] == '-':
+                    doc_copy[k] = date.fromisoformat(v)
+            except Exception:
+                pass
     return doc_copy
 
 

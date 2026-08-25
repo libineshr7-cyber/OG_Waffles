@@ -48,6 +48,10 @@ function renderDashboardView() {
   const todayRevenue = m.today.sales || 0;
   const todayProfit = m.today.profit || 0;
   const todaySalesCount = m.today.bills || 0;
+  const todayCash = m.today.cash_total || 0;
+  const todayUpi = m.today.upi_total || 0;
+  const todayCard = m.today.card_total || 0;
+  const todaySplit = m.today.split_total || 0;
   const monthSales = m.this_month.sales || 0;
   const monthProfit = m.this_month.profit || 0;
   const lowStockCount = (m.inventory.low_stock_count || 0) + (m.inventory.out_of_stock_count || 0);
@@ -140,6 +144,31 @@ function renderDashboardView() {
           </div>
           <div class="text-2xl font-extrabold text-purple-300 font-heading">${formatCurrency(monthSales)}</div>
           <div class="text-[10px] text-gray-400">Month Net Profit: ${formatCurrency(monthProfit)}</div>
+        </div>
+      </div>
+
+      <!-- Live Payment Method Distribution Widget -->
+      <div class="glass-card p-4 flex flex-wrap gap-4 items-center justify-between border border-[#D4AF37]/30 text-xs shadow-lg bg-gradient-to-r from-black/80 via-gray-900/60 to-black/80">
+        <div class="flex items-center gap-2">
+          <i class="fas fa-chart-pie text-[#D4AF37] text-sm"></i>
+          <div>
+            <span class="font-bold text-white block">Today's Payment Method Distribution</span>
+            <span class="text-[10px] text-gray-400">Real-time collections by tender mode</span>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="px-3 py-1.5 rounded-lg bg-emerald-950/50 border border-emerald-500/40 text-emerald-300 font-medium flex items-center gap-1.5">
+            <i class="fas fa-money-bill-wave text-emerald-400"></i> Cash: <strong class="text-white font-mono">${formatCurrency(todayCash)}</strong>
+          </span>
+          <span class="px-3 py-1.5 rounded-lg bg-blue-950/50 border border-blue-500/40 text-blue-300 font-medium flex items-center gap-1.5">
+            <i class="fas fa-qrcode text-blue-400"></i> UPI: <strong class="text-white font-mono">${formatCurrency(todayUpi)}</strong>
+          </span>
+          <span class="px-3 py-1.5 rounded-lg bg-amber-950/50 border border-amber-500/40 text-amber-300 font-medium flex items-center gap-1.5">
+            <i class="fas fa-credit-card text-amber-400"></i> Card: <strong class="text-white font-mono">${formatCurrency(todayCard)}</strong>
+          </span>
+          <span class="px-3 py-1.5 rounded-lg bg-indigo-950/50 border border-indigo-500/40 text-indigo-300 font-medium flex items-center gap-1.5">
+            <i class="fas fa-columns text-indigo-400"></i> Split: <strong class="text-white font-mono">${formatCurrency(todaySplit)}</strong>
+          </span>
         </div>
       </div>
 

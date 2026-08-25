@@ -45,8 +45,9 @@ class SaleCreate(BaseModel):
     customer_id: Optional[str] = None
     customer: Optional[CustomerPayload] = None  # Auto customer creation / lookup by phone
     items: List[SaleItemCreate] = Field(..., min_length=1)
-    payment_method: Literal["CASH", "UPI", "CARD"] = "CASH"
+    payment_method: Literal["CASH", "UPI", "CARD", "SPLIT"] = "CASH"
     payment_reference: Optional[str] = ""
+    split_payments: Optional[List[PaymentCreate]] = None
     discount: Optional[float] = Field(0.00, ge=0.0)
     tax: Optional[float] = Field(0.00, ge=0.0)
 
@@ -82,6 +83,7 @@ class TodaySalesSummary(BaseModel):
     cash_total: float
     upi_total: float
     card_total: float
+    split_total: float = 0.0
 
 
 class SalesSummary(BaseModel):
@@ -95,3 +97,4 @@ class SalesSummary(BaseModel):
     cash_total: float
     upi_total: float
     card_total: float
+    split_total: float = 0.0

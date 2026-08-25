@@ -4,7 +4,7 @@ from typing import Optional, Literal, Union
 
 
 class PaymentCreate(BaseModel):
-    payment_method: Literal["CASH", "UPI", "CARD"]
+    payment_method: Literal["CASH", "UPI", "CARD", "SPLIT"]
     amount: float = Field(..., gt=0.0)
     reference_number: Optional[str] = ""
 

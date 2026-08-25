@@ -1,10 +1,11 @@
 from typing import List, Optional
 from datetime import date, datetime
+import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from pymongo import DESCENDING
 import uuid
 
-from app.database import get_db, clean_doc, clean_docs
+from app.database import get_db, clean_doc, clean_docs, to_bson_datetime
 from app.schemas.sale import (
     SaleCreate, SaleOut, SaleItemOut, TodaySalesSummary, SalesSummary
 )
@@ -12,6 +13,57 @@ from app.schemas.payment import PaymentOut
 from app.auth.dependencies import get_current_user, require_owner, require_authenticated
 
 router = APIRouter(prefix="/api/sales", tags=["Sales & Billing"])
+
+
+def save_invoice_to_oglogs(sale: dict, items: list, payments: list, customer_name: str = "Walk-in Guest"):
+    try:
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        oglogs_dir = os.path.join(base_dir, "OGLOGS")
+        os.makedirs(oglogs_dir, exist_ok=True)
+
+        inv_no = sale.get("invoice_number", "INV_UNKNOWN")
+        file_path = os.path.join(oglogs_dir, f"Invoice_{inv_no}.txt")
+
+        pay_str = ", ".join([f"{p.get('payment_method', 'CASH')} (₹{float(p.get('amount', 0.0)):.2f})" for p in payments])
+        date_str = str(sale.get("sale_date") or date.today())
+        time_str = datetime.now().strftime("%I:%M %p")
+
+        lines = [
+            "==================================================",
+            "           OG WAFFLES & FRIED CHICKEN             ",
+            "==================================================",
+            f"Invoice No : {inv_no}",
+            f"Date / Time: {date_str} {time_str}",
+            f"Customer   : {customer_name}",
+            f"Payment    : {pay_str}",
+            "--------------------------------------------------",
+            f"{'Item':<28} {'Qty':>4} {'Price':>7} {'Total':>8}",
+            "--------------------------------------------------",
+        ]
+        for itm in items:
+            name = str(itm.get("product_name_snapshot", "Item"))[:28]
+            qty = itm.get("quantity", 1)
+            price = float(itm.get("unit_price", 0.0))
+            total = float(itm.get("line_total", 0.0))
+            lines.append(f"{name:<28} {qty:>4} {price:>7.2f} {total:>8.2f}")
+        lines.extend([
+            "--------------------------------------------------",
+            f"{'Subtotal:':<38} ₹{float(sale.get('subtotal', 0.0)):>8.2f}",
+            f"{'Discount:':<38} ₹{float(sale.get('discount', 0.0)):>8.2f}",
+            f"{'Tax / GST:':<38} ₹{float(sale.get('tax', 0.0)):>8.2f}",
+            "==================================================",
+            f"{'GRAND TOTAL:':<38} ₹{float(sale.get('total', 0.0)):>8.2f}",
+            "==================================================",
+            "      Thank you for visiting OG Waffles!          ",
+            "==================================================",
+        ])
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+        print(f"[OGLOGS] Saved invoice log to: {file_path}")
+    except Exception as e:
+        print(f"[OGLOGS Error] Could not save invoice log: {e}")
+
 
 
 def generate_invoice_number(db) -> str:
@@ -124,7 +176,7 @@ def create_sale(
             cust_update = {
                 "total_spent": new_spent,
                 "visit_count": new_visits,
-                "last_visit": today,
+                "last_visit": to_bson_datetime(today),
                 "is_deleted": False,
                 "updated_at": now
             }
@@ -145,7 +197,7 @@ def create_sale(
                 "visit_count": 1,
                 "reward_visits": 0,
                 "reward_redemptions": 0,
-                "last_visit": today,
+                "last_visit": to_bson_datetime(today),
                 "is_deleted": False,
                 "created_at": now,
                 "updated_at": now
@@ -160,7 +212,7 @@ def create_sale(
                 {"$set": {
                     "total_spent": float(cust.get("total_spent", 0.0)) + grand_total,
                     "visit_count": int(cust.get("visit_count", 0)) + 1,
-                    "last_visit": today,
+                    "last_visit": to_bson_datetime(today),
                     "updated_at": now
                 }}
             )
@@ -177,7 +229,7 @@ def create_sale(
             {"$set": {
                 "current_qty": qty_after,
                 "status": new_status,
-                "last_updated": today,
+                "last_updated": to_bson_datetime(today),
                 "updated_at": now
             }}
         )
@@ -208,7 +260,7 @@ def create_sale(
         "total": grand_total,
         "payment_status": "PAID",
         "sale_status": "COMPLETED",
-        "sale_date": today,
+        "sale_date": to_bson_datetime(today),
         "created_by": current_user.get("id", 1),
         "created_at": now,
         "updated_at": now
@@ -220,20 +272,42 @@ def create_sale(
     if stock_movements_to_add:
         db["stock_movements"].insert_many(stock_movements_to_add)
 
-    # 6. Create Payment Record
-    payment = {
-        "id": f"PAY-{uuid.uuid4().hex[:6].upper()}",
-        "sale_id": sale_id,
-        "payment_method": sale_in.payment_method,
-        "amount": grand_total,
-        "reference_number": sale_in.payment_reference or "",
-        "created_at": now
-    }
-    db["payments"].insert_one(payment)
+    # 6. Create Payment Record(s)
+    payments_to_add = []
+    if sale_in.payment_method == "SPLIT" and sale_in.split_payments:
+        for sp in sale_in.split_payments:
+            payments_to_add.append({
+                "id": f"PAY-{uuid.uuid4().hex[:6].upper()}",
+                "sale_id": sale_id,
+                "payment_method": sp.payment_method,
+                "amount": float(sp.amount),
+                "reference_number": sp.reference_number or "",
+                "created_at": now
+            })
+    else:
+        payments_to_add.append({
+            "id": f"PAY-{uuid.uuid4().hex[:6].upper()}",
+            "sale_id": sale_id,
+            "payment_method": sale_in.payment_method,
+            "amount": grand_total,
+            "reference_number": sale_in.payment_reference or "",
+            "created_at": now
+        })
+    db["payments"].insert_many(payments_to_add)
+
+    # Automatically save invoice copy to OGLOGS folder on disk
+    cust_name_log = "Walk-in Guest"
+    if sale_in.customer and sale_in.customer.name:
+        cust_name_log = sale_in.customer.name
+    elif final_customer_id:
+        c_doc = db["customers"].find_one({"id": final_customer_id})
+        if c_doc and c_doc.get("name"):
+            cust_name_log = c_doc["name"]
+    save_invoice_to_oglogs(new_sale, sale_items_to_add, payments_to_add, cust_name_log)
 
     result = clean_doc(new_sale)
     result["items"] = clean_docs(sale_items_to_add)
-    result["payments"] = [clean_doc(payment)]
+    result["payments"] = clean_docs(payments_to_add)
     return result
 
 
@@ -251,9 +325,9 @@ def list_sales(
     if date_from or date_to:
         query["sale_date"] = {}
         if date_from:
-            query["sale_date"]["$gte"] = date_from
+            query["sale_date"]["$gte"] = to_bson_datetime(date_from)
         if date_to:
-            query["sale_date"]["$lte"] = date_to
+            query["sale_date"]["$lte"] = datetime.combine(date_to, datetime.max.time())
     if sale_status:
         query["sale_status"] = sale_status
     if payment_status:
@@ -277,8 +351,14 @@ def get_today_sales(
     current_user: dict = Depends(require_authenticated)
 ):
     today = date.today()
+    start_dt = datetime.combine(today, datetime.min.time())
+    end_dt = datetime.combine(today, datetime.max.time())
     completed_sales = list(db["sales"].find({
-        "sale_date": today,
+        "$or": [
+            {"sale_date": {"$gte": start_dt, "$lte": end_dt}},
+            {"sale_date": today.isoformat()},
+            {"sale_date": str(today)}
+        ],
         "sale_status": "COMPLETED"
     }))
 
@@ -292,6 +372,7 @@ def get_today_sales(
     cash_total = 0.0
     upi_total = 0.0
     card_total = 0.0
+    split_total = 0.0
 
     if sale_ids:
         payments = list(db["payments"].find({"sale_id": {"$in": sale_ids}}))
@@ -304,6 +385,8 @@ def get_today_sales(
                 upi_total += amt
             elif method == "CARD":
                 card_total += amt
+            elif method == "SPLIT":
+                split_total += amt
 
     return {
         "sale_date": today,
@@ -314,7 +397,8 @@ def get_today_sales(
         "net_sales": round(net_sales, 2),
         "cash_total": round(cash_total, 2),
         "upi_total": round(upi_total, 2),
-        "card_total": round(card_total, 2)
+        "card_total": round(card_total, 2),
+        "split_total": round(split_total, 2)
     }
 
 
@@ -329,9 +413,9 @@ def get_sales_summary(
     if date_from or date_to:
         query["sale_date"] = {}
         if date_from:
-            query["sale_date"]["$gte"] = date_from
+            query["sale_date"]["$gte"] = to_bson_datetime(date_from)
         if date_to:
-            query["sale_date"]["$lte"] = date_to
+            query["sale_date"]["$lte"] = datetime.combine(date_to, datetime.max.time())
 
     sales = list(db["sales"].find(query))
     num_bills = len(sales)
@@ -344,6 +428,7 @@ def get_sales_summary(
     cash_total = 0.0
     upi_total = 0.0
     card_total = 0.0
+    split_total = 0.0
 
     if sale_ids:
         payments = list(db["payments"].find({"sale_id": {"$in": sale_ids}}))
@@ -356,6 +441,8 @@ def get_sales_summary(
                 upi_total += amt
             elif method == "CARD":
                 card_total += amt
+            elif method == "SPLIT":
+                split_total += amt
 
     return {
         "date_from": date_from,
@@ -367,7 +454,8 @@ def get_sales_summary(
         "net_sales": round(net_sales, 2),
         "cash_total": round(cash_total, 2),
         "upi_total": round(upi_total, 2),
-        "card_total": round(card_total, 2)
+        "card_total": round(card_total, 2),
+        "split_total": round(split_total, 2)
     }
 
 
@@ -448,7 +536,7 @@ def cancel_sale(
                     {"$set": {
                         "current_qty": qty_after,
                         "status": new_status,
-                        "last_updated": date.today(),
+                        "last_updated": to_bson_datetime(date.today()),
                         "updated_at": now
                     }}
                 )
