@@ -709,37 +709,23 @@ class Store {
   async loadMasterData() {
     if (typeof api === "undefined" || !api.getToken()) return;
     try {
-      const isOwner = api.getRole() === "OWNER";
-      // Fetch categories & products (cashier and owner can both view)
-      const [cats, prods] = await Promise.all([
+      // Master data accessible to all authenticated users (Categories, Products, Inventory, Customers)
+      const [cats, prods, inv, custs] = await Promise.all([
         api.categories.list().catch(err => { console.warn("[Store] categories fetch error:", err); return null; }),
-        api.products.list().catch(err => { console.warn("[Store] products fetch error:", err); return null; })
+        api.products.list().catch(err => { console.warn("[Store] products fetch error:", err); return null; }),
+        api.inventory.list().catch(err => { console.warn("[Store] inventory fetch error:", err); return null; }),
+        api.customers.list().catch(err => { console.warn("[Store] customers fetch error:", err); return null; })
       ]);
 
-      if (Array.isArray(cats)) {
-        this.syncCategories(cats);
-      }
-      if (Array.isArray(prods)) {
-        this.syncProducts(prods);
-      }
+      if (Array.isArray(cats))  this.syncCategories(cats);
+      if (Array.isArray(prods)) this.syncProducts(prods);
+      if (Array.isArray(inv))   this.syncInventory(inv);
+      if (Array.isArray(custs)) this.syncCustomers(custs);
 
-      // Owner-only master data (inventory and suppliers)
+      // Owner-only master data (Suppliers)
       if (isOwner) {
         const sups = await api.suppliers.list().catch(err => { console.warn("[Store] suppliers fetch error:", err); return null; });
-        if (Array.isArray(sups)) {
-          this.syncSuppliers(sups);
-        }
-
-        const inv = await api.inventory.list().catch(err => { console.warn("[Store] inventory fetch error:", err); return null; });
-        if (Array.isArray(inv)) {
-          this.syncInventory(inv);
-        }
-      }
-
-      // Sync Customers (both Owner and Cashier can view/search)
-      const custs = await api.customers.list().catch(err => { console.warn("[Store] customers fetch error:", err); return null; });
-      if (Array.isArray(custs)) {
-        this.syncCustomers(custs);
+        if (Array.isArray(sups)) this.syncSuppliers(sups);
       }
 
       this.saveState();

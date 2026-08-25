@@ -448,7 +448,7 @@ function renderPosView() {
           <div class="text-center border-b border-gray-300 pb-3 space-y-1">
             <img src="${settings.logoUrl || 'assets/logo.png'}" alt="Logo" class="w-16 h-16 object-cover rounded-full mx-auto mb-1 border border-gray-300 shadow-sm">
             <h2 class="font-black text-base uppercase tracking-wider text-black">OG WAFFLES &amp; FRIED CHICKEN</h2>
-            <p class="text-[11px] text-gray-600">${settings.address || 'No. 390, paneer nagar, thiruvalluvar salai, mogapair east, chennai - 600037'} • Tel: ${settings.phone || '+91 93633 23102'}</p>
+            <p class="text-[11px] text-gray-600 font-medium">No. 390, paneer nagar, thiruvalluvar salai, mogapair east, chennai - 600037 • Tel: +91 93633 23102</p>
           </div>
 
           <div id="invoice-details-content" class="space-y-3">
@@ -666,6 +666,11 @@ function validateCartStock() {
   const state       = store.getState();
   const menuItems   = state.menuItems   || [];
   const ingredients = state.ingredients || [];
+
+  // If ingredients are not yet populated in client cache, allow server to validate
+  if (ingredients.length === 0) {
+    return { ok: true, shortages: [] };
+  }
 
   // Accumulate total base unit requirements for the ENTIRE cart
   const requirements = {};
