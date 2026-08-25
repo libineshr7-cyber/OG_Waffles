@@ -384,7 +384,7 @@ function renderPosView() {
     </div>
 
     <!-- Printable Invoice Dialog Container -->
-    <div id="printable-invoice-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 hidden overflow-y-auto">
+    <div id="printable-invoice-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 ${_activeInvoiceOrder ? '' : 'hidden'} overflow-y-auto">
       <div class="w-full max-w-lg bg-white text-black p-6 rounded-2xl shadow-2xl space-y-4 font-sans text-xs relative" id="printable-invoice">
         <button onclick="closeInvoiceModal()" class="absolute top-4 right-4 text-gray-500 hover:text-black text-base no-print">
           <i class="fas fa-times"></i>
@@ -399,7 +399,7 @@ function renderPosView() {
         </div>
 
         <div id="invoice-details-content" class="space-y-3">
-          <!-- Dynamic Bill Details Inserted Here -->
+          ${_activeInvoiceOrder ? buildInvoiceDetailsHtml(_activeInvoiceOrder, _activeInvoicePaymentMethod) : '<!-- Dynamic Bill Details Inserted Here -->'}
         </div>
 
         <div class="text-center border-t border-gray-300 pt-3 text-[10px] text-gray-500">
@@ -877,8 +877,89 @@ async function confirmSplitOrder(grandTotal) {
   await completePosOrder('Split', splitPayments);
 }
 
-/* ─── Bill Completion Lock (prevents double-click duplicate bills) ─── */
+/* ─── Bill Completion Lock & Active Modal State ─── */
 let _posOrderInProgress = false;
+let _activeInvoiceOrder = null;
+let _activeInvoicePaymentMethod = null;
+
+function buildInvoiceDetailsHtml(order, paymentMethodName) {
+  if (!order) return "";
+  const settings = store.getState().settings;
+  const invoiceNo = order.invoice_number || order.id || "N/A";
+  const dateStr = order.sale_date || new Date().toISOString().split("T")[0];
+  let timeStr = new Date().toTimeString().split(" ")[0].substring(0, 5);
+  if (order.created_at) {
+    try {
+      timeStr = new Date(order.created_at).toTimeString().split(" ")[0].substring(0, 5);
+    } catch(e) {}
+  }
+
+  let custName = "Walk-in Guest";
+  if (order.customer_id) {
+    const found = (store.getState().customers || []).find(c => c.id === order.customer_id);
+    if (found && found.name) custName = found.name;
+  } else if (posCustName) {
+    custName = posCustName;
+  }
+
+  let payMethod = paymentMethodName || "Cash";
+  if (order.payments && order.payments.length > 0) {
+    payMethod = order.payments.map(p => `${p.payment_method} (₹${parseFloat(p.amount || 0).toFixed(2)})`).join(", ");
+  }
+
+  const itemsList = order.items || [];
+  const subtotalVal = order.subtotal !== undefined ? order.subtotal : (order.total || 0);
+  const discountVal = order.discount || 0;
+  const taxVal = order.tax || 0;
+  const grandTotalVal = order.total !== undefined ? order.total : (order.grandTotal || 0);
+
+  return `
+    <div class="flex justify-between text-[11px] border-b border-gray-200 pb-2">
+      <div>
+        <p><strong>Invoice No:</strong> <span class="font-mono text-black font-bold">${invoiceNo}</span></p>
+        <p><strong>Date/Time:</strong> ${dateStr} ${timeStr}</p>
+      </div>
+      <div class="text-right">
+        <p><strong>Customer:</strong> ${custName}</p>
+        <p><strong>Payment:</strong> <span class="font-semibold text-emerald-800">${payMethod}</span></p>
+      </div>
+    </div>
+
+    <table class="w-full text-left border-collapse my-2 text-[11px]">
+      <thead>
+        <tr class="border-b border-gray-400 font-bold">
+          <th class="py-1">Item</th>
+          <th class="py-1 text-center">Qty</th>
+          <th class="py-1 text-right">Price</th>
+          <th class="py-1 text-right">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itemsList.map(i => {
+          const name = i.product_name_snapshot || i.name || "Item";
+          const qty = i.quantity !== undefined ? i.quantity : (i.qty || 1);
+          const price = i.unit_price !== undefined ? i.unit_price : (i.price || 0);
+          const total = i.line_total !== undefined ? i.line_total : (price * qty);
+          return `
+            <tr class="border-b border-gray-200">
+              <td class="py-1 font-medium">${name}</td>
+              <td class="py-1 text-center">${qty}</td>
+              <td class="py-1 text-right">${formatCurrency(price)}</td>
+              <td class="py-1 text-right">${formatCurrency(total)}</td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+
+    <div class="space-y-1 text-right text-[11px] pt-1">
+      <p>Subtotal: ${formatCurrency(subtotalVal)}</p>
+      ${discountVal > 0 ? `<p class="text-emerald-700">Discount: -${formatCurrency(discountVal)}</p>` : ''}
+      <p>GST/Tax (${settings.taxRate}%): ${formatCurrency(taxVal)}</p>
+      <p class="text-sm font-bold text-black border-t border-gray-400 pt-1">Grand Total: ${formatCurrency(grandTotalVal)}</p>
+    </div>
+  `;
+}
 
 async function completePosOrder(method, splitBreakdown = null) {
   // ── LAYER 1: Double-click / re-entry guard ─────────────────────────
@@ -950,6 +1031,10 @@ async function completePosOrder(method, splitBreakdown = null) {
   try {
     const saleResult = await api.sales.create(payload);
 
+    // Save active invoice state to survive any background re-renders
+    _activeInvoiceOrder = saleResult;
+    _activeInvoicePaymentMethod = method;
+
     // Close payment modal and show authoritative invoice
     closePaymentModal();
     displayInvoiceModal(saleResult, method);
@@ -960,9 +1045,6 @@ async function completePosOrder(method, splitBreakdown = null) {
     posCustName = '';
     posCustPhone = '';
     posSelectedCustomerId = null;
-
-    // Refresh master data (authoritative inventory stock, customer list)
-    await store.loadMasterData().catch(e => console.warn("[Store refresh error]", e));
 
     // Trigger celebratory confetti
     if (typeof confetti === 'function') {
@@ -993,89 +1075,29 @@ async function completePosOrder(method, splitBreakdown = null) {
 
 
 function displayInvoiceModal(order, paymentMethodName) {
-  const settings = store.getState().settings;
+  _activeInvoiceOrder = order;
+  _activeInvoicePaymentMethod = paymentMethodName;
   const content = document.getElementById("invoice-details-content");
-  if (!content) return;
-
-  const invoiceNo = order.invoice_number || order.id || "N/A";
-  const dateStr = order.sale_date || new Date().toISOString().split("T")[0];
-  let timeStr = new Date().toTimeString().split(" ")[0].substring(0, 5);
-  if (order.created_at) {
-    try {
-      timeStr = new Date(order.created_at).toTimeString().split(" ")[0].substring(0, 5);
-    } catch(e) {}
+  const modal = document.getElementById("printable-invoice-modal");
+  if (content) {
+    content.innerHTML = buildInvoiceDetailsHtml(order, paymentMethodName);
   }
-
-  // Find customer name if customer_id is present
-  let custName = posCustName || "Walk-in Guest";
-  if (order.customer_id) {
-    const found = (store.getState().customers || []).find(c => c.id === order.customer_id);
-    if (found && found.name) custName = found.name;
+  if (modal) {
+    modal.classList.remove("hidden");
   }
-
-  let payMethod = paymentMethodName || "Cash";
-  if (order.payments && order.payments.length > 0) {
-    payMethod = order.payments.map(p => `${p.payment_method} (₹${parseFloat(p.amount || 0).toFixed(2)})`).join(", ");
-  }
-
-  const itemsList = order.items || [];
-  const subtotalVal = order.subtotal !== undefined ? order.subtotal : (order.total || 0);
-  const discountVal = order.discount || 0;
-  const taxVal = order.tax || 0;
-  const grandTotalVal = order.total !== undefined ? order.total : (order.grandTotal || 0);
-
-  content.innerHTML = `
-    <div class="flex justify-between text-[11px] border-b border-gray-200 pb-2">
-      <div>
-        <p><strong>Invoice No:</strong> <span class="font-mono text-black font-bold">${invoiceNo}</span></p>
-        <p><strong>Date/Time:</strong> ${dateStr} ${timeStr}</p>
-      </div>
-      <div class="text-right">
-        <p><strong>Customer:</strong> ${custName}</p>
-        <p><strong>Payment:</strong> <span class="font-semibold text-emerald-800">${payMethod}</span></p>
-      </div>
-    </div>
-
-    <table class="w-full text-left border-collapse my-2 text-[11px]">
-      <thead>
-        <tr class="border-b border-gray-400 font-bold">
-          <th class="py-1">Item</th>
-          <th class="py-1 text-center">Qty</th>
-          <th class="py-1 text-right">Price</th>
-          <th class="py-1 text-right">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${itemsList.map(i => {
-          const name = i.product_name_snapshot || i.name || "Item";
-          const qty = i.quantity !== undefined ? i.quantity : (i.qty || 1);
-          const price = i.unit_price !== undefined ? i.unit_price : (i.price || 0);
-          const total = i.line_total !== undefined ? i.line_total : (price * qty);
-          return `
-            <tr class="border-b border-gray-200">
-              <td class="py-1 font-medium">${name}</td>
-              <td class="py-1 text-center">${qty}</td>
-              <td class="py-1 text-right">${formatCurrency(price)}</td>
-              <td class="py-1 text-right">${formatCurrency(total)}</td>
-            </tr>
-          `;
-        }).join('')}
-      </tbody>
-    </table>
-
-    <div class="space-y-1 text-right text-[11px] pt-1">
-      <p>Subtotal: ${formatCurrency(subtotalVal)}</p>
-      ${discountVal > 0 ? `<p class="text-emerald-700">Discount: -${formatCurrency(discountVal)}</p>` : ''}
-      <p>GST/Tax (${settings.taxRate}%): ${formatCurrency(taxVal)}</p>
-      <p class="text-sm font-bold text-black border-t border-gray-400 pt-1">Grand Total: ${formatCurrency(grandTotalVal)}</p>
-    </div>
-  `;
-
-  document.getElementById("printable-invoice-modal").classList.remove("hidden");
 }
 
 function closeInvoiceModal() {
-  document.getElementById("printable-invoice-modal").classList.add("hidden");
+  _activeInvoiceOrder = null;
+  _activeInvoicePaymentMethod = null;
+  const modal = document.getElementById("printable-invoice-modal");
+  if (modal) {
+    modal.classList.add("hidden");
+  }
+  // Refresh master data (authoritative inventory stock, customer list) in background
+  if (typeof store !== 'undefined' && store.loadMasterData) {
+    store.loadMasterData().catch(e => console.warn("[Store refresh error]", e));
+  }
   renderView('pos');
 }
 
