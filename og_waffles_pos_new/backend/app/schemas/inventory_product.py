@@ -1,6 +1,6 @@
 from datetime import datetime, date
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, Literal
+from typing import Optional, Literal, Union
 
 
 class InventoryProductBase(BaseModel):
@@ -61,7 +61,7 @@ class InventoryWasteRequest(BaseModel):
 
 class InventoryProductOut(InventoryProductBase):
     id: str
-    last_updated: Optional[date] = None
+    last_updated: Optional[Union[datetime, date, str]] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

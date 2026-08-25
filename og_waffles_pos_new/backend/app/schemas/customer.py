@@ -1,6 +1,6 @@
 from datetime import datetime, date
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, List
+from typing import Optional, List, Union
 from app.schemas.reward import RewardVisitOut, RewardRedemptionOut
 
 
@@ -8,7 +8,7 @@ class CustomerBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=150)
     phone: str = Field(..., min_length=5, max_length=50)
     email: Optional[str] = ""
-    birthday: Optional[date] = None
+    birthday: Optional[Union[datetime, date, str]] = None
     address: Optional[str] = ""
     notes: Optional[str] = ""
 
@@ -50,7 +50,7 @@ class CustomerOut(CustomerBase):
     visit_count: int = 0
     reward_visits: int = 0
     reward_redemptions: int = 0
-    last_visit: Optional[date] = None
+    last_visit: Optional[Union[datetime, date, str]] = None
     is_deleted: bool = False
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

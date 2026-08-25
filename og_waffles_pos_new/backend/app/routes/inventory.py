@@ -10,7 +10,7 @@ from app.schemas.inventory_product import (
     InventoryAdjustmentRequest, InventoryWasteRequest
 )
 from app.schemas.stock_movement import StockMovementOut
-from app.auth.dependencies import require_owner
+from app.auth.dependencies import require_owner, require_authenticated
 
 router = APIRouter(prefix="/api/inventory", tags=["Inventory Products"])
 
@@ -23,11 +23,11 @@ def calculate_status(current_qty: float, min_limit: float) -> str:
     return "IN_STOCK"
 
 
-@router.get("", response_model=List[InventoryProductOut], summary="List Inventory Products (Owner Only)")
+@router.get("", response_model=List[InventoryProductOut], summary="List Inventory Products (Authenticated)")
 def get_inventory(
     category: Optional[str] = None,
     db = Depends(get_db),
-    current_user: dict = Depends(require_owner)
+    current_user: dict = Depends(require_authenticated)
 ):
     query = {}
     if category:
