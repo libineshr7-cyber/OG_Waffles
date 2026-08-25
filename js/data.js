@@ -3,7 +3,7 @@
 const INITIAL_DATA = {
   settings: {
     businessName: "OG Waffles & Fried Chicken",
-    parentBrand: "Odyssey's Group",
+    parentBrand: "OG Waffles & Fried Chicken",
     subTitle: "Premium Business Management System",
     address: "108 Luxury Boulevard, Golden Triangle, Jubilee Hills, Hyderabad 500033",
     phone: "+91 98765 43210",
@@ -11,7 +11,7 @@ const INITIAL_DATA = {
     gstNumber: "36AAAAA0000A1Z5",
     taxRate: 5.0, // 5% GST
     currency: "₹",
-    receiptFooter: "Thank you for dining with Odyssey's Group. Premium Quality Guaranteed.",
+    receiptFooter: "Thank you for dining with OG",
     logoUrl: "assets/logo.png", // Official Uploaded Logo
     ownerPin: "1234",
     ownerPassword: "admin",

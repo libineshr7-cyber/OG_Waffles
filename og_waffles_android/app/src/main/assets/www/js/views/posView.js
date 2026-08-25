@@ -8,6 +8,35 @@ let isTaxEnabled = false; // Default OFF — enabled on click
 // Customer details persist across cart updates — cleared only on successful bill
 let posCustName  = '';
 let posCustPhone = '';
+let posOrderType = 'Walk-in'; // 'Walk-in' vs 'Online'
+
+function setPosOrderType(type) {
+  posOrderType = type;
+  const walkBtn = document.getElementById('cart-order-type-walkin');
+  const onlineBtn = document.getElementById('cart-order-type-online');
+  const modalWalkBtn = document.getElementById('modal-order-type-walkin');
+  const modalOnlineBtn = document.getElementById('modal-order-type-online');
+  
+  if (walkBtn && onlineBtn) {
+    if (type === 'Walk-in') {
+      walkBtn.className = 'flex-1 py-1 px-2 rounded-lg text-xs font-bold bg-[#D4AF37] text-black shadow-sm flex items-center justify-center gap-1';
+      onlineBtn.className = 'flex-1 py-1 px-2 rounded-lg text-xs font-semibold text-gray-400 hover:text-white flex items-center justify-center gap-1';
+    } else {
+      walkBtn.className = 'flex-1 py-1 px-2 rounded-lg text-xs font-semibold text-gray-400 hover:text-white flex items-center justify-center gap-1';
+      onlineBtn.className = 'flex-1 py-1 px-2 rounded-lg text-xs font-bold bg-[#D4AF37] text-black shadow-sm flex items-center justify-center gap-1';
+    }
+  }
+
+  if (modalWalkBtn && modalOnlineBtn) {
+    if (type === 'Walk-in') {
+      modalWalkBtn.className = 'flex-1 py-1.5 px-3 rounded-lg text-xs font-bold bg-[#D4AF37] text-black shadow-sm flex items-center justify-center gap-1.5';
+      modalOnlineBtn.className = 'flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold text-gray-400 hover:text-white flex items-center justify-center gap-1.5';
+    } else {
+      modalWalkBtn.className = 'flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold text-gray-400 hover:text-white flex items-center justify-center gap-1.5';
+      modalOnlineBtn.className = 'flex-1 py-1.5 px-3 rounded-lg text-xs font-bold bg-[#D4AF37] text-black shadow-sm flex items-center justify-center gap-1.5';
+    }
+  }
+}
 
 function renderPosView() {
   const state = store.getState();
@@ -183,13 +212,25 @@ function renderPosView() {
       <!-- RIGHT SECTION: LIVE ORDER CART & BILLING PANEL (35% Width) -->
       <div class="w-full md:w-96 bg-[#141414] border-l border-[#D4AF37]/30 flex flex-col justify-between p-4 shadow-2xl">
         <!-- Cart Header & Customer Attachment -->
-        <div class="space-y-3 border-b border-gray-800 pb-3">
+        <div class="space-y-2.5 border-b border-gray-800 pb-3">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
               <i class="fas fa-shopping-cart text-[#D4AF37]"></i>
               <h3 class="font-heading font-bold text-sm text-white">Current POS Order</h3>
             </div>
             <button onclick="clearPosCart()" class="text-[10px] text-red-400 hover:underline font-semibold">Clear Cart</button>
+          </div>
+
+          <!-- Order Channel / Type Selector: Walk-in vs Online -->
+          <div class="flex items-center gap-1.5 p-1 bg-black/60 rounded-xl border border-gray-800 text-xs">
+            <button type="button" id="cart-order-type-walkin" onclick="setPosOrderType('Walk-in')"
+              class="flex-1 py-1 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${posOrderType === 'Walk-in' ? 'bg-[#D4AF37] text-black shadow-sm' : 'text-gray-400 hover:text-white'}">
+              <i class="fas fa-walking text-[10px]"></i> Walk-in
+            </button>
+            <button type="button" id="cart-order-type-online" onclick="setPosOrderType('Online')"
+              class="flex-1 py-1 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${posOrderType === 'Online' ? 'bg-[#D4AF37] text-black shadow-sm' : 'text-gray-400 hover:text-white'}">
+              <i class="fas fa-globe text-[10px]"></i> Online Order
+            </button>
           </div>
 
           <!-- Customer Name & Phone Input with Auto-Lookup / Auto-Registration -->
@@ -282,7 +323,7 @@ function renderPosView() {
               <span class="text-white font-semibold">${formatCurrency(taxAmount)}</span>
             </div>
             <div class="flex justify-between text-base font-extrabold text-white pt-1 border-t border-gray-700">
-              <span>Grand Total:</span>
+              <span>Total:</span>
               <span class="text-[#D4AF37] font-heading">${formatCurrency(grandTotal)}</span>
             </div>
           </div>
@@ -309,6 +350,21 @@ function renderPosView() {
         <div class="text-center py-2 bg-black/50 rounded-xl border border-[#D4AF37]/30">
           <span class="text-xs text-gray-400 block">Total Payable Amount</span>
           <span class="text-3xl font-extrabold text-[#D4AF37] font-heading" id="pos-modal-grand-total">${formatCurrency(grandTotal)}</span>
+        </div>
+
+        <!-- Order Type Selection Inside Payment Modal -->
+        <div class="space-y-1.5">
+          <label class="text-[10px] text-gray-400 uppercase font-semibold tracking-wider">Customer Order Type</label>
+          <div class="flex items-center gap-2 p-1 bg-black/60 rounded-xl border border-gray-800">
+            <button type="button" id="modal-order-type-walkin" onclick="setPosOrderType('Walk-in')"
+              class="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${posOrderType === 'Walk-in' ? 'bg-[#D4AF37] text-black shadow-sm' : 'text-gray-400 hover:text-white'}">
+              <i class="fas fa-walking"></i> Walk-in
+            </button>
+            <button type="button" id="modal-order-type-online" onclick="setPosOrderType('Online')"
+              class="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${posOrderType === 'Online' ? 'bg-[#D4AF37] text-black shadow-sm' : 'text-gray-400 hover:text-white'}">
+              <i class="fas fa-globe"></i> Online Order
+            </button>
+          </div>
         </div>
 
         <!-- 4-Button Payment Method Grid -->
@@ -385,37 +441,39 @@ function renderPosView() {
 
     <!-- Printable Invoice Dialog Container -->
     <div id="printable-invoice-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 ${_activeInvoiceOrder ? '' : 'hidden'} overflow-y-auto">
-      <div class="w-full max-w-lg bg-white text-black p-6 rounded-2xl shadow-2xl space-y-4 font-sans text-xs relative" id="printable-invoice">
-        <button onclick="closeInvoiceModal()" class="absolute top-4 right-4 text-gray-500 hover:text-black text-base no-print">
-          <i class="fas fa-times"></i>
-        </button>
+      <div class="w-full max-w-md flex flex-col gap-3 my-auto">
+        <!-- Clean Printable Bill (No action buttons or close X inside the receipt paper) -->
+        <div class="w-full bg-white text-black p-6 rounded-2xl shadow-2xl space-y-4 font-sans text-xs" id="printable-invoice">
+          <!-- Top Header: Round Logo & OG Waffles & Fried Chicken -->
+          <div class="text-center border-b border-gray-300 pb-3 space-y-1">
+            <img src="${settings.logoUrl || 'assets/logo.png'}" alt="Logo" class="w-16 h-16 object-cover rounded-full mx-auto mb-1 border border-gray-300 shadow-sm">
+            <h2 class="font-black text-base uppercase tracking-wider text-black">OG WAFFLES &amp; FRIED CHICKEN</h2>
+            <p class="text-[11px] text-gray-600">${settings.address || 'Hinjawadi, Pune, Maharashtra'} • Tel: ${settings.phone || '+91 98765 43210'}</p>
+          </div>
 
-        <div class="text-center border-b border-gray-300 pb-4 space-y-1">
-          <img src="${settings.logoUrl || 'assets/logo.png'}" alt="Logo" class="w-16 h-16 object-contain mx-auto mb-1">
-          <h2 class="font-bold text-lg uppercase tracking-wider text-black">${settings.parentBrand}</h2>
-          <h3 class="font-semibold text-sm text-gray-700">${settings.businessName}</h3>
-          <p class="text-[11px] text-gray-500">${settings.address} • Tel: ${settings.phone}</p>
-          <p class="text-[10px] text-gray-500">GSTIN: ${settings.gstNumber}</p>
+          <div id="invoice-details-content" class="space-y-3">
+            ${_activeInvoiceOrder ? buildInvoiceDetailsHtml(_activeInvoiceOrder, _activeInvoicePaymentMethod) : '<!-- Dynamic Bill Details Inserted Here -->'}
+          </div>
+
+          <!-- Bottom Footer: Thank you for dining with OG -->
+          <div class="text-center border-t border-gray-300 pt-3 text-[11px] font-bold text-gray-800 tracking-wide">
+            Thank you for dining with OG
+          </div>
         </div>
 
-        <div id="invoice-details-content" class="space-y-3">
-          ${_activeInvoiceOrder ? buildInvoiceDetailsHtml(_activeInvoiceOrder, _activeInvoicePaymentMethod) : '<!-- Dynamic Bill Details Inserted Here -->'}
-        </div>
-
-        <div class="text-center border-t border-gray-300 pt-3 text-[10px] text-gray-500">
-          <p class="font-bold text-gray-800">${settings.receiptFooter}</p>
-          <p>Powered by Odyssey's Group ERP Software</p>
-        </div>
-
-        <div class="flex flex-col sm:flex-row items-center gap-2 pt-4 no-print border-t border-gray-200">
-          <button onclick="printAndDownloadInvoice()" class="w-full sm:flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all">
+        <!-- Separate Action Controls Below the Bill (Never printed on the bill) -->
+        <div class="glass-card p-3 border border-gray-800 flex flex-wrap items-center gap-2 no-print shadow-2xl">
+          <button onclick="printAndDownloadInvoice()" class="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all">
             <i class="fas fa-print"></i> <i class="fas fa-file-download"></i> Print &amp; Download Bill (OGLOGS)
           </button>
-          <button onclick="window.print()" class="w-full sm:w-auto px-4 py-2.5 rounded-lg bg-black hover:bg-gray-800 text-white font-bold text-xs flex items-center justify-center gap-1.5">
+          <button onclick="window.print()" class="py-2.5 px-4 rounded-xl bg-gray-900 hover:bg-gray-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 border border-gray-700">
             <i class="fas fa-print"></i> Print
           </button>
-          <button onclick="downloadInvoicePdf()" class="w-full sm:w-auto px-4 py-2.5 rounded-lg bg-[#D4AF37] hover:brightness-110 text-black font-bold text-xs flex items-center justify-center gap-1.5">
-            <i class="fas fa-file-pdf"></i> Download PDF
+          <button onclick="downloadInvoicePdf()" class="py-2.5 px-4 rounded-xl bg-[#D4AF37] hover:brightness-110 text-black font-bold text-xs flex items-center justify-center gap-1.5">
+            <i class="fas fa-file-pdf"></i> PDF
+          </button>
+          <button onclick="closeInvoiceModal()" class="py-2.5 px-4 rounded-xl bg-red-950/60 hover:bg-red-900 border border-red-500/40 text-red-300 font-bold text-xs flex items-center justify-center gap-1.5" title="Close & Start New Sale">
+            <i class="fas fa-check-circle"></i> Done
           </button>
         </div>
       </div>
@@ -907,17 +965,20 @@ function buildInvoiceDetailsHtml(order, paymentMethodName) {
     payMethod = order.payments.map(p => `${p.payment_method} (₹${parseFloat(p.amount || 0).toFixed(2)})`).join(", ");
   }
 
+  const orderType = order.order_type || posOrderType || "Walk-in";
+
   const itemsList = order.items || [];
   const subtotalVal = order.subtotal !== undefined ? order.subtotal : (order.total || 0);
   const discountVal = order.discount || 0;
   const taxVal = order.tax || 0;
-  const grandTotalVal = order.total !== undefined ? order.total : (order.grandTotal || 0);
+  const totalVal = order.total !== undefined ? order.total : (order.grandTotal || 0);
 
   return `
     <div class="flex justify-between text-[11px] border-b border-gray-200 pb-2">
       <div>
         <p><strong>Invoice No:</strong> <span class="font-mono text-black font-bold">${invoiceNo}</span></p>
         <p><strong>Date/Time:</strong> ${dateStr} ${timeStr}</p>
+        <p><strong>Order Type:</strong> <span class="font-semibold text-gray-800">${orderType}</span></p>
       </div>
       <div class="text-right">
         <p><strong>Customer:</strong> ${custName}</p>
@@ -955,8 +1016,8 @@ function buildInvoiceDetailsHtml(order, paymentMethodName) {
     <div class="space-y-1 text-right text-[11px] pt-1">
       <p>Subtotal: ${formatCurrency(subtotalVal)}</p>
       ${discountVal > 0 ? `<p class="text-emerald-700">Discount: -${formatCurrency(discountVal)}</p>` : ''}
-      <p>GST/Tax (${settings.taxRate}%): ${formatCurrency(taxVal)}</p>
-      <p class="text-sm font-bold text-black border-t border-gray-400 pt-1">Grand Total: ${formatCurrency(grandTotalVal)}</p>
+      ${taxVal > 0 ? `<p>GST/Tax (${settings.taxRate}%): ${formatCurrency(taxVal)}</p>` : ''}
+      <p class="text-sm font-black text-black border-t border-gray-400 pt-1">Total: ${formatCurrency(totalVal)}</p>
     </div>
   `;
 }
@@ -1024,6 +1085,7 @@ async function completePosOrder(method, splitBreakdown = null) {
     payment_method: method.toUpperCase(),
     payment_reference: "",
     split_payments: (method.toUpperCase() === 'SPLIT' && splitBreakdown) ? splitBreakdown : null,
+    order_type: posOrderType || "Walk-in",
     discount: parseFloat(discountAmt.toFixed(2)),
     tax: parseFloat(taxAmount.toFixed(2))
   };
@@ -1045,6 +1107,7 @@ async function completePosOrder(method, splitBreakdown = null) {
     posCustName = '';
     posCustPhone = '';
     posSelectedCustomerId = null;
+    posOrderType = 'Walk-in';
 
     // Trigger celebratory confetti
     if (typeof confetti === 'function') {

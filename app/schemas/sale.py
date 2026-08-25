@@ -48,6 +48,7 @@ class SaleCreate(BaseModel):
     payment_method: Literal["CASH", "UPI", "CARD", "SPLIT"] = "CASH"
     payment_reference: Optional[str] = ""
     split_payments: Optional[List[PaymentCreate]] = None
+    order_type: Optional[str] = "Walk-in"
     discount: Optional[float] = Field(0.00, ge=0.0)
     tax: Optional[float] = Field(0.00, ge=0.0)
 
@@ -56,6 +57,7 @@ class SaleOut(BaseModel):
     id: str
     invoice_number: str
     customer_id: Optional[str] = None
+    order_type: Optional[str] = "Walk-in"
     subtotal: float
     discount: float = 0.0
     tax: float = 0.0

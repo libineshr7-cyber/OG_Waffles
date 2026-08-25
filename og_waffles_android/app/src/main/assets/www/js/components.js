@@ -32,7 +32,7 @@ function renderLogo(size = 'normal', showSub = true) {
       ${logoImgHtml}
       <div class="flex flex-col">
         <span class="font-heading font-extrabold tracking-wider ${isSmall ? 'text-sm' : isLarge ? 'text-2xl' : 'text-lg'} text-gold-gradient leading-tight gold-glow-text">
-          ${settings.parentBrand || "Odyssey's Group"}
+          ${settings.parentBrand || "OG Waffles & Fried Chicken"}
         </span>
         <span class="text-[10px] tracking-widest text-[#D4AF37]/90 uppercase font-semibold font-body">
           ${settings.businessName || "OG WAFFLES & FRIED CHICKEN"}
