@@ -32,14 +32,14 @@ function renderLogo(size = 'normal', showSub = true) {
       ${logoImgHtml}
       <div class="flex flex-col">
         <span class="font-heading font-extrabold tracking-wider ${isSmall ? 'text-sm' : isLarge ? 'text-2xl' : 'text-lg'} text-gold-gradient leading-tight gold-glow-text">
-          ${settings.parentBrand || "OG Waffles & Fried Chicken"}
+          OG WAFFLES &amp; FRIED CHICKEN
         </span>
         <span class="text-[10px] tracking-widest text-[#D4AF37]/90 uppercase font-semibold font-body">
-          ${settings.businessName || "OG WAFFLES & FRIED CHICKEN"}
+          Chennai &bull; Tel: +91 93633 23102
         </span>
         ${showSub ? `
           <span class="text-[9px] text-gray-400 font-medium tracking-wide">
-            ${settings.subTitle || "Premium Business Management System"}
+            ${settings.subTitle || "Restaurant Management & POS System"}
           </span>
         ` : ''}
       </div>
@@ -162,7 +162,7 @@ function renderSidebar(activeView) {
         <button onclick="logout()" class="w-full flex items-center justify-center gap-2 text-xs text-gray-500 hover:text-red-400 transition-colors py-2 rounded-xl hover:bg-red-950/30">
           <i class="fas fa-sign-out-alt"></i> Logout from ${role}
         </button>
-        <p class="text-[9px] text-[#D4AF37]/60 mt-2">OG Waffles ERP v2.5 · Odyssey's Group © 2026</p>
+        <p class="text-[9px] text-[#D4AF37]/60 mt-2">OG Waffles &amp; Fried Chicken © 2026</p>
       </div>
     </aside>
   `;

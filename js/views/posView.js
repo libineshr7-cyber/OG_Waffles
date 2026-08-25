@@ -329,7 +329,7 @@ function renderPosView() {
           </div>
 
           <!-- Checkout & Payment Buttons -->
-          <button onclick="openPaymentModal(${grandTotal})" ${posCart.length === 0 ? 'disabled' : ''} class="w-full btn-gold-solid py-3 text-sm flex items-center justify-center gap-2 ${posCart.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}">
+          <button type="button" onclick="openPaymentModal(${grandTotal})" ${posCart.length === 0 ? 'disabled' : ''} class="w-full btn-gold-solid py-3 text-sm flex items-center justify-center gap-2 ${posCart.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}">
             <i class="fas fa-credit-card"></i> Process Payment & Print Bill
           </button>
         </div>
@@ -344,7 +344,7 @@ function renderPosView() {
             <i class="fas fa-cash-register text-[#D4AF37]"></i>
             <h3 class="font-heading font-bold text-base text-white">Select Payment Method</h3>
           </div>
-          <button onclick="closePaymentModal()" class="text-gray-400 hover:text-white"><i class="fas fa-times"></i></button>
+          <button type="button" onclick="closePaymentModal()" class="text-gray-400 hover:text-white"><i class="fas fa-times"></i></button>
         </div>
 
         <div class="text-center py-2 bg-black/50 rounded-xl border border-[#D4AF37]/30">
@@ -369,22 +369,22 @@ function renderPosView() {
 
         <!-- 4-Button Payment Method Grid -->
         <div id="payment-methods-grid" class="grid grid-cols-2 gap-3 text-xs">
-          <button id="pay-btn-cash" onclick="completePosOrder('Cash')" class="p-4 rounded-xl bg-black border border-gray-700 hover:border-[#D4AF37] hover:bg-[#D4AF37]/10 flex flex-col items-center gap-2 text-white font-bold transition-all">
+          <button type="button" id="pay-btn-cash" onclick="completePosOrder('Cash')" class="p-4 rounded-xl bg-black border border-gray-700 hover:border-[#D4AF37] hover:bg-[#D4AF37]/10 flex flex-col items-center gap-2 text-white font-bold transition-all">
             <i class="fas fa-money-bill-wave text-2xl text-emerald-400"></i>
             Cash Payment
           </button>
 
-          <button id="pay-btn-upi" onclick="completePosOrder('UPI')" class="p-4 rounded-xl bg-black border border-gray-700 hover:border-[#D4AF37] hover:bg-[#D4AF37]/10 flex flex-col items-center gap-2 text-white font-bold transition-all">
+          <button type="button" id="pay-btn-upi" onclick="completePosOrder('UPI')" class="p-4 rounded-xl bg-black border border-gray-700 hover:border-[#D4AF37] hover:bg-[#D4AF37]/10 flex flex-col items-center gap-2 text-white font-bold transition-all">
             <i class="fas fa-qrcode text-2xl text-amber-400"></i>
             UPI / QR Code
           </button>
 
-          <button id="pay-btn-card" onclick="completePosOrder('Card')" class="p-4 rounded-xl bg-black border border-gray-700 hover:border-[#D4AF37] hover:bg-[#D4AF37]/10 flex flex-col items-center gap-2 text-white font-bold transition-all">
+          <button type="button" id="pay-btn-card" onclick="completePosOrder('Card')" class="p-4 rounded-xl bg-black border border-gray-700 hover:border-[#D4AF37] hover:bg-[#D4AF37]/10 flex flex-col items-center gap-2 text-white font-bold transition-all">
             <i class="fas fa-credit-card text-2xl text-purple-400"></i>
             Card Payment
           </button>
 
-          <button id="pay-btn-split" onclick="showSplitPaymentView(${grandTotal})" class="p-4 rounded-xl bg-black border border-gray-700 hover:border-[#D4AF37] hover:bg-[#D4AF37]/10 flex flex-col items-center gap-2 text-white font-bold transition-all">
+          <button type="button" id="pay-btn-split" onclick="showSplitPaymentView(${grandTotal})" class="p-4 rounded-xl bg-black border border-gray-700 hover:border-[#D4AF37] hover:bg-[#D4AF37]/10 flex flex-col items-center gap-2 text-white font-bold transition-all">
             <i class="fas fa-columns text-2xl text-blue-400"></i>
             Split Payment
           </button>

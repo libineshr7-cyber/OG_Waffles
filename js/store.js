@@ -45,6 +45,15 @@ class Store {
           if (!this.state.expenses)        this.state.expenses = [];
           if (!this.state.stockMovements)  this.state.stockMovements = [];
           if (this.state.currentUser === undefined) this.state.currentUser = null;
+
+          // ── Clean up legacy branding & force updated outlet address/phone ──
+          if (this.state.settings) {
+            this.state.settings.businessName = "OG Waffles & Fried Chicken";
+            this.state.settings.parentBrand = "OG Waffles & Fried Chicken";
+            this.state.settings.address = "No. 390, paneer nagar, thiruvalluvar salai, mogapair east, chennai - 600037";
+            this.state.settings.phone = "+91 93633 23102";
+            this.state.settings.receiptFooter = "Thank you for dining with OG";
+          }
           return;
         }
       } catch (e) {
