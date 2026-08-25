@@ -448,7 +448,7 @@ function renderPosView() {
           <div class="text-center border-b border-gray-300 pb-3 space-y-1">
             <img src="${settings.logoUrl || 'assets/logo.png'}" alt="Logo" class="w-16 h-16 object-cover rounded-full mx-auto mb-1 border border-gray-300 shadow-sm">
             <h2 class="font-black text-base uppercase tracking-wider text-black">OG WAFFLES &amp; FRIED CHICKEN</h2>
-            <p class="text-[11px] text-gray-600">${settings.address || 'Hinjawadi, Pune, Maharashtra'} • Tel: ${settings.phone || '+91 98765 43210'}</p>
+            <p class="text-[11px] text-gray-600">${settings.address || 'No. 390, paneer nagar, thiruvalluvar salai, mogapair east, chennai - 600037'} • Tel: ${settings.phone || '+91 93633 23102'}</p>
           </div>
 
           <div id="invoice-details-content" class="space-y-3">
@@ -1164,23 +1164,31 @@ function closeInvoiceModal() {
   renderView('pos');
 }
 
-function downloadInvoicePdf() {
+async function downloadInvoicePdf() {
   const element = document.getElementById("printable-invoice");
+  if (!element) return;
+  const invNo = (_activeInvoiceOrder && (_activeInvoiceOrder.invoice_number || _activeInvoiceOrder.id)) ? (_activeInvoiceOrder.invoice_number || _activeInvoiceOrder.id) : Date.now();
   const opt = {
-    margin:       0.5,
-    filename:     `Invoice_OG_Waffles_${Date.now()}.pdf`,
+    margin:       0.35,
+    filename:     `Invoice_${invNo}.pdf`,
     image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2 },
+    html2canvas:  { scale: 2, useCORS: true, logging: false },
     jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
   };
-  html2pdf().set(opt).from(element).save();
+  if (typeof html2pdf !== 'undefined') {
+    try {
+      await html2pdf().set(opt).from(element).save();
+    } catch(err) {
+      console.warn("[PDF generation notice]", err);
+    }
+  }
 }
 
-function printAndDownloadInvoice() {
-  // 1. Trigger local PDF invoice download in browser
-  downloadInvoicePdf();
-  // 2. Open browser printer dialog
+async function printAndDownloadInvoice() {
+  // 1. Automatically download the PDF invoice
+  await downloadInvoicePdf();
+  // 2. Open browser print prompt
   setTimeout(() => {
     window.print();
-  }, 350);
+  }, 400);
 }

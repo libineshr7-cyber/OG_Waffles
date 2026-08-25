@@ -5,8 +5,8 @@ const INITIAL_DATA = {
     businessName: "OG Waffles & Fried Chicken",
     parentBrand: "OG Waffles & Fried Chicken",
     subTitle: "Premium Business Management System",
-    address: "108 Luxury Boulevard, Golden Triangle, Jubilee Hills, Hyderabad 500033",
-    phone: "+91 98765 43210",
+    address: "No. 390, paneer nagar, thiruvalluvar salai, mogapair east, chennai - 600037",
+    phone: "+91 93633 23102",
     email: "concierge@ogwaffles.in",
     gstNumber: "36AAAAA0000A1Z5",
     taxRate: 5.0, // 5% GST
