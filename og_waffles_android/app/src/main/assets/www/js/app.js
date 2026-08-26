@@ -193,9 +193,13 @@ function renderCurrentApp() {
   `;
 
   setTimeout(() => {
-    if (currentView === "dashboard" && typeof initDashboardCharts === "function") initDashboardCharts();
-    if (currentView === "expenses"  && typeof initExpenseChart    === "function") initExpenseChart();
-    if (currentView === "reports"   && typeof initReportCharts    === "function") initReportCharts();
+    try {
+      if (currentView === "dashboard" && typeof initDashboardCharts === "function") initDashboardCharts();
+      if (currentView === "expenses"  && typeof initExpenseChart    === "function") initExpenseChart();
+      if (currentView === "reports"   && typeof initReportCharts    === "function") initReportCharts();
+    } catch (chartErr) {
+      console.warn("[Chart] Non-fatal chart rendering notice:", chartErr);
+    }
   }, 50);
 }
 
@@ -256,6 +260,11 @@ function renderAccessDenied(role, attemptedView) {
    NAVIGATION
    ───────────────────────────────────────────────────────────────── */
 function navigate(viewId) {
+  const mobileSidebar = document.getElementById('admin-mobile-sidebar');
+  if (mobileSidebar && mobileSidebar.classList && typeof mobileSidebar.classList.add === 'function') {
+    mobileSidebar.classList.add('hidden');
+  }
+
   const customerRoutes = [
     "customer", "home", "website", "online-order", "checkout", "cart",
     "portal", "menu-site", "promotions", "account", "order-online",

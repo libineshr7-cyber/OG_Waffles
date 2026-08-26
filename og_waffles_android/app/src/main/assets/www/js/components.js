@@ -56,7 +56,12 @@ function renderNavBar(activeView) {
 
   return `
     <header class="sticky top-0 z-40 bg-[#0B0B0B]/90 backdrop-blur-md border-b border-[#D4AF37]/20 px-4 py-3 flex items-center justify-between shadow-lg">
-      <div class="flex items-center gap-6">
+      <div class="flex items-center gap-3">
+        <!-- Mobile Sidebar Toggle -->
+        <button onclick="toggleMobileSidebar()" class="md:hidden p-2 rounded-xl bg-[#141414] border border-[#D4AF37]/30 text-[#D4AF37] hover:border-[#D4AF37]" title="Toggle Menu">
+          <i class="fas fa-bars text-sm"></i>
+        </button>
+
         <div class="cursor-pointer" onclick="navigate(store.getState().currentUser && store.getState().currentUser.role === 'CASHIER' ? 'pos' : 'dashboard')">
           ${renderLogo('normal', true)}
         </div>
@@ -104,6 +109,13 @@ function renderNavBar(activeView) {
   `;
 }
 
+function toggleMobileSidebar() {
+  const sidebar = document.getElementById('admin-mobile-sidebar');
+  if (sidebar) {
+    sidebar.classList.toggle('hidden');
+  }
+}
+
 // 3. ADMIN SIDEBAR NAVIGATION
 function renderSidebar(activeView) {
   const state = store.getState();
@@ -118,7 +130,7 @@ function renderSidebar(activeView) {
     { id: 'purchases',  label: 'Purchases',            icon: 'fa-truck-loading',   roles: ['OWNER'] },
     { id: 'menu',       label: 'Menu Management',      icon: 'fa-utensils',        roles: ['OWNER'] },
     { id: 'expenses',   label: 'Expenses',             icon: 'fa-receipt',         roles: ['OWNER'] },
-    { id: 'reports',    label: 'Analytics & Reports',  icon: 'fa-chart-pie',       roles: ['OWNER'] },
+    { id: 'reports',    label: 'Business Reports',     icon: 'fa-chart-bar',       roles: ['OWNER'] },
     { id: 'rewards',    label: 'Customer Rewards',     icon: 'fa-award',           roles: ['OWNER', 'CASHIER'] },
     { id: 'customers',  label: 'Customer Database',    icon: 'fa-users',           roles: ['OWNER', 'CASHIER'] },
     { id: 'staff',      label: 'Staff Management',     icon: 'fa-user-tie',        roles: ['OWNER'] },
@@ -137,6 +149,42 @@ function renderSidebar(activeView) {
   const roleIcon = role === 'OWNER' ? 'fa-crown' : 'fa-cash-register';
 
   return `
+    <!-- Mobile Slide-out Drawer Overlay -->
+    <div id="admin-mobile-sidebar" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden md:hidden flex flex-col justify-between p-4 max-w-xs w-full border-r border-[#D4AF37]/30 overflow-y-auto">
+      <div class="space-y-1">
+        <div class="flex items-center justify-between pb-3 mb-2 border-b border-[#D4AF37]/20">
+          ${renderLogo('normal', true)}
+          <button onclick="toggleMobileSidebar()" class="p-2 text-gray-400 hover:text-white text-lg">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <div class="px-3 py-2 mb-3 rounded-xl border ${roleBadgeColor} flex items-center gap-2 text-xs font-bold">
+          <i class="fas ${roleIcon} text-sm"></i>
+          <span class="uppercase tracking-wide">${role} PORTAL</span>
+        </div>
+
+        ${filteredItems.map(item => {
+          const isItemActive = activeView === item.id || (item.id === 'todaysales' && activeView === 'today-sales') || (item.id === 'systemlogs' && activeView === 'system-logs');
+          return `
+          <button onclick="navigate('${item.id}')" class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${isItemActive ? 'bg-gradient-to-r from-[#BF953F]/20 to-transparent text-[#D4AF37] border-l-4 border-[#D4AF37]' : 'text-gray-400 hover:text-white hover:bg-white/5'}">
+            <div class="flex items-center gap-3">
+              <i class="fas ${item.icon} w-4 text-center ${isItemActive ? 'text-[#D4AF37]' : 'text-gray-500'}"></i>
+              <span>${item.label}</span>
+            </div>
+            ${item.highlight ? `<span class="bg-[#D4AF37] text-black text-[9px] font-extrabold px-1.5 py-0.5 rounded">POS</span>` : ''}
+          </button>
+        `;}).join('')}
+      </div>
+
+      <div class="pt-4 border-t border-[#D4AF37]/10 text-center">
+        <button onclick="logout()" class="w-full flex items-center justify-center gap-2 text-xs text-gray-400 hover:text-red-400 transition-colors py-2 rounded-xl hover:bg-red-950/30">
+          <i class="fas fa-sign-out-alt"></i> Logout from ${role}
+        </button>
+      </div>
+    </div>
+
+    <!-- Desktop Sidebar -->
     <aside class="w-64 bg-[#0B0B0B] border-r border-[#D4AF37]/20 flex flex-col justify-between hidden md:flex min-h-[calc(100vh-61px)]">
       <div class="py-4 px-3 space-y-1">
         <!-- Role Badge -->
