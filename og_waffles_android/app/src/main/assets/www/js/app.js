@@ -5,8 +5,8 @@ let currentView = null; // active view id
    Single source of truth for what each role can access.
    ───────────────────────────────────────────────────────────────── */
 const ROLE_PERMISSIONS = {
-  OWNER:   ["dashboard","pos","inventory","purchases","menu","expenses","reports","rewards","customers","todaysales","staff","suppliers","waste","systemlogs","settings"],
-  CASHIER: ["pos","customers","rewards","todaysales"]
+  OWNER:   ["dashboard","pos","inventory","purchases","menu","expenses","reports","rewards","customers","todaysales","today-sales","staff","suppliers","waste","systemlogs","system-logs","settings"],
+  CASHIER: ["pos","customers","rewards","todaysales","today-sales"]
 };
 
 function canAccess(role, view) {
@@ -210,7 +210,8 @@ function renderActiveAdminView(view, role) {
   switch (view) {
     case "dashboard":   return renderDashboardView();
     case "pos":         return renderPosView();
-    case "todaysales":  return renderTodaySalesView();
+    case "todaysales":
+    case "today-sales": return renderTodaySalesView();
     case "inventory":   return renderInventoryView();
     case "purchases":   return renderPurchaseView();
     case "menu":        return renderMenuView();
@@ -221,7 +222,8 @@ function renderActiveAdminView(view, role) {
     case "staff":       return renderStaffView();
     case "suppliers":   return renderSuppliersView();
     case "waste":       return renderWasteView();
-    case "systemlogs":  return renderSystemLogsView();
+    case "systemlogs":
+    case "system-logs": return renderSystemLogsView();
     case "settings":    return renderSettingsView();
     default:            return defaultViewForRole(role) === "pos" ? renderPosView() : renderDashboardView();
   }

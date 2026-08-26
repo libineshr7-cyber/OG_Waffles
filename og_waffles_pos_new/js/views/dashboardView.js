@@ -1,4 +1,4 @@
-/* OG Waffles & Fried Chicken - Live Business Dashboard View (Authoritative Backend Integration) */
+/* OG Waffles & Fried Chicken - Live Business Dashboard View (Authoritative Backend & Local Reactive Engine) */
 
 let _dashboardMetrics = null;
 let _dashboardRecentSales = [];
@@ -6,44 +6,154 @@ let _dashboardSalesTrend = [];
 let _dashboardLoaded = false;
 let _dashboardLoading = false;
 
+function calculateLocalDashboardData() {
+  const state = store.getState();
+  const todayStr = new Date().toISOString().split("T")[0];
+  const thisMonthStr = todayStr.substring(0, 7);
+
+  const orders = state.orders || [];
+  const expenses = state.expenses || [];
+  const ingredients = state.ingredients || [];
+  const customers = state.customers || [];
+
+  // Today's orders
+  const todayOrders = orders.filter(o => (o.date || o.created_at || '').startsWith(todayStr));
+  let todaySales = 0;
+  let todayCash = 0;
+  let todayUpi = 0;
+  let todayCard = 0;
+  let todaySplit = 0;
+
+  todayOrders.forEach(o => {
+    const total = parseFloat(o.total) || parseFloat(o.grandTotal) || 0;
+    todaySales += total;
+    const pm = (o.paymentMethod || o.payment_method || 'CASH').toUpperCase();
+    if (pm.includes('CASH')) todayCash += total;
+    else if (pm.includes('UPI') || pm.includes('GPAY') || pm.includes('PHONEPE')) todayUpi += total;
+    else if (pm.includes('CARD')) todayCard += total;
+    else todaySplit += total;
+  });
+
+  const todayExpenses = expenses
+    .filter(e => (e.date || '').startsWith(todayStr))
+    .reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+
+  const todayProfit = todaySales - todayExpenses - (todaySales * 0.35);
+
+  // Month's orders
+  const monthOrders = orders.filter(o => (o.date || o.created_at || '').startsWith(thisMonthStr));
+  const monthSales = monthOrders.reduce((sum, o) => sum + (parseFloat(o.total) || parseFloat(o.grandTotal) || 0), 0);
+  const monthExpenses = expenses
+    .filter(e => (e.date || '').startsWith(thisMonthStr))
+    .reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+  const monthProfit = monthSales - monthExpenses - (monthSales * 0.35);
+
+  // Inventory
+  let lowStockCount = 0;
+  let outOfStockCount = 0;
+  let totalInventoryValue = 0;
+
+  ingredients.forEach(i => {
+    const qty = parseFloat(i.currentQty) || 0;
+    const min = parseFloat(i.minLimit) || 5;
+    const cost = parseFloat(i.avgCost) || parseFloat(i.cost) || 0;
+    totalInventoryValue += qty * cost;
+    if (qty <= 0) outOfStockCount++;
+    else if (qty <= min) lowStockCount++;
+  });
+
+  const eligibleRewards = customers.filter(c => (c.stampCount || 0) >= 5 || (c.rewardProgress || 0) >= 5).length;
+  const recentSales = orders.slice(0, 5);
+
+  // 7-day trend
+  const trendMap = {};
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+    const dStr = d.toISOString().split("T")[0];
+    trendMap[dStr] = 0;
+  }
+  orders.forEach(o => {
+    const dStr = (o.date || o.created_at || '').split("T")[0];
+    if (trendMap[dStr] !== undefined) {
+      trendMap[dStr] += (parseFloat(o.total) || parseFloat(o.grandTotal) || 0);
+    }
+  });
+
+  const salesTrend = Object.keys(trendMap).map(d => ({
+    trend_date: d,
+    net_sales: trendMap[d]
+  }));
+
+  return {
+    metrics: {
+      today: {
+        sales: todaySales,
+        bills: todayOrders.length,
+        expenses: todayExpenses,
+        profit: todayProfit,
+        cash_total: todayCash,
+        upi_total: todayUpi,
+        card_total: todayCard,
+        split_total: todaySplit
+      },
+      this_month: {
+        sales: monthSales,
+        bills: monthOrders.length,
+        expenses: monthExpenses,
+        profit: monthProfit
+      },
+      inventory: {
+        total_inventory_value: totalInventoryValue,
+        low_stock_count: lowStockCount,
+        out_of_stock_count: outOfStockCount
+      },
+      customers: {
+        total_active_customers: customers.length,
+        new_customers_this_month: customers.filter(c => (c.createdAt || c.created_at || '').startsWith(thisMonthStr)).length
+      },
+      rewards: {
+        eligible_customers_count: eligibleRewards
+      }
+    },
+    recentSales,
+    salesTrend
+  };
+}
+
 async function fetchDashboardBackend() {
   if (_dashboardLoading || typeof api === 'undefined' || !api.getToken()) return;
   _dashboardLoading = true;
   try {
     const [metrics, recentSales, trend] = await Promise.all([
-      api.dashboard.get().catch(err => { console.warn("[Dashboard] metrics error:", err); return null; }),
-      api.sales.list().catch(err => { console.warn("[Dashboard] recent sales error:", err); return []; }),
-      api.reports.salesTrend().catch(err => { console.warn("[Dashboard] sales trend error:", err); return []; })
+      api.dashboard.get().catch(err => { console.warn("[Dashboard] metrics notice:", err.message); return null; }),
+      api.sales.list().catch(err => { console.warn("[Dashboard] recent sales notice:", err.message); return []; }),
+      api.reports.salesTrend().catch(err => { console.warn("[Dashboard] sales trend notice:", err.message); return []; })
     ]);
 
     if (metrics) _dashboardMetrics = metrics;
-    if (Array.isArray(recentSales)) _dashboardRecentSales = recentSales.slice(0, 5);
-    if (Array.isArray(trend)) _dashboardSalesTrend = trend;
-    _dashboardLoaded = true;
+    if (Array.isArray(recentSales) && recentSales.length > 0) _dashboardRecentSales = recentSales.slice(0, 5);
+    if (Array.isArray(trend) && trend.length > 0) _dashboardSalesTrend = trend;
   } catch (e) {
-    console.error("[Dashboard] Error:", e);
+    console.warn("[Dashboard] Using local reactive state:", e.message);
   } finally {
+    _dashboardLoaded = true;
     _dashboardLoading = false;
   }
 }
 
 function renderDashboardView() {
-  // Trigger background fetch if not yet loaded
+  const localData = calculateLocalDashboardData();
+
+  // Background fetch without causing infinite loops
   if (!_dashboardLoaded && !_dashboardLoading && typeof api !== 'undefined' && api.getToken()) {
-    fetchDashboardBackend().then(() => {
-      if (typeof currentView !== 'undefined' && currentView === 'dashboard') {
-        renderCurrentApp();
-      }
-    });
+    fetchDashboardBackend();
   }
 
-  const m = _dashboardMetrics || {
-    today: { sales: 0, bills: 0, expenses: 0, profit: 0 },
-    this_month: { sales: 0, bills: 0, expenses: 0, profit: 0 },
-    inventory: { total_inventory_value: 0, low_stock_count: 0, out_of_stock_count: 0 },
-    customers: { total_active_customers: 0, new_customers_this_month: 0 },
-    rewards: { eligible_customers_count: 0 }
-  };
+  const m = _dashboardMetrics || localData.metrics;
+  const recentOrders = (_dashboardRecentSales && _dashboardRecentSales.length > 0) ? _dashboardRecentSales : localData.recentSales;
+  if (!_dashboardSalesTrend || _dashboardSalesTrend.length === 0) {
+    _dashboardSalesTrend = localData.salesTrend;
+  }
 
   const todayRevenue = m.today.sales || 0;
   const todayProfit = m.today.profit || 0;
@@ -55,8 +165,6 @@ function renderDashboardView() {
   const monthSales = m.this_month.sales || 0;
   const monthProfit = m.this_month.profit || 0;
   const lowStockCount = (m.inventory.low_stock_count || 0) + (m.inventory.out_of_stock_count || 0);
-
-  const recentOrders = _dashboardRecentSales || [];
 
   return `
     <div class="p-6 space-y-8 animate-fade-in">

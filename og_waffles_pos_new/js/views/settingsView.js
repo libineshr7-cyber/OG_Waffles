@@ -3,6 +3,7 @@
 function renderSettingsView() {
   const state = store.getState();
   const settings = state.settings;
+  const currentBaseUrl = (typeof api !== 'undefined' && api && api.baseUrl) ? api.baseUrl : (typeof window !== 'undefined' && window.location ? window.location.origin : 'http://localhost:8000');
 
   return `
     <div class="p-6 space-y-6 animate-fade-in max-w-5xl mx-auto">
@@ -115,7 +116,7 @@ function renderSettingsView() {
               <div class="flex items-center justify-between">
                 <div>
                   <p class="font-bold text-white text-xs">Active Server Connection</p>
-                  <p class="text-[10px] text-gray-400 font-mono mt-0.5" id="settings-current-server">${api.baseUrl}</p>
+                  <p class="text-[10px] text-gray-400 font-mono mt-0.5" id="settings-current-server">${currentBaseUrl}</p>
                 </div>
                 <button type="button" onclick="testCurrentServer()" class="py-1.5 px-3 rounded-lg bg-gray-800 hover:bg-gray-700 text-xs text-[#D4AF37] border border-[#D4AF37]/30 font-semibold">
                   <i class="fas fa-sync-alt mr-1"></i> Test Health
@@ -129,7 +130,7 @@ function renderSettingsView() {
             <form onsubmit="handleServerSave(event)" class="space-y-4">
               <div>
                 <label class="block text-gray-300 font-semibold mb-1">Backend Server API URL</label>
-                <input id="settings-server-url-input" type="url" required value="${api.baseUrl}" placeholder="https://og-waffles-backend.onrender.com" class="input-gold py-2 text-xs">
+                <input id="settings-server-url-input" type="url" required value="${currentBaseUrl}" placeholder="https://og-waffles-backend.onrender.com" class="input-gold py-2 text-xs">
                 <p class="text-[10px] text-gray-500 mt-1">When deployed to Render, paste your Render URL here (e.g. <code>https://og-waffles-pos.onrender.com</code>).</p>
               </div>
 

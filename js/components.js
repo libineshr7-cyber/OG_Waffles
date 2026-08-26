@@ -148,15 +148,17 @@ function renderSidebar(activeView) {
           </div>
         </div>
 
-        ${filteredItems.map(item => `
-          <button onclick="navigate('${item.id}')" class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${activeView === item.id ? 'bg-gradient-to-r from-[#BF953F]/20 to-transparent text-[#D4AF37] border-l-4 border-[#D4AF37]' : 'text-gray-400 hover:text-white hover:bg-white/5'}">
+        ${filteredItems.map(item => {
+          const isItemActive = activeView === item.id || (item.id === 'todaysales' && activeView === 'today-sales') || (item.id === 'systemlogs' && activeView === 'system-logs');
+          return `
+          <button onclick="navigate('${item.id}')" class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${isItemActive ? 'bg-gradient-to-r from-[#BF953F]/20 to-transparent text-[#D4AF37] border-l-4 border-[#D4AF37]' : 'text-gray-400 hover:text-white hover:bg-white/5'}">
             <div class="flex items-center gap-3">
-              <i class="fas ${item.icon} w-4 text-center ${activeView === item.id ? 'text-[#D4AF37]' : 'text-gray-500'}"></i>
+              <i class="fas ${item.icon} w-4 text-center ${isItemActive ? 'text-[#D4AF37]' : 'text-gray-500'}"></i>
               <span>${item.label}</span>
             </div>
             ${item.highlight ? `<span class="bg-[#D4AF37] text-black text-[9px] font-extrabold px-1.5 py-0.5 rounded">POS</span>` : ''}
           </button>
-        `).join('')}
+        `;}).join('')}
       </div>
 
       <!-- Sidebar Footer -->

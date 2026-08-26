@@ -27,6 +27,55 @@ function getDateRangeForTab(tab) {
   return { date_from: todayStr, date_to: todayStr };
 }
 
+function calculateLocalReportsData(tab = "Daily") {
+  const state = store.getState();
+  const range = getDateRangeForTab(tab);
+  const orders = (state.orders || []).filter(o => {
+    const d = (o.date || o.created_at || '').split("T")[0];
+    return d >= range.date_from && d <= range.date_to;
+  });
+  const expenses = (state.expenses || []).filter(e => {
+    const d = (e.date || '').split("T")[0];
+    return d >= range.date_from && d <= range.date_to;
+  });
+
+  let netSales = 0;
+  const prodMap = {};
+
+  orders.forEach(o => {
+    const tot = parseFloat(o.total) || parseFloat(o.grandTotal) || 0;
+    netSales += tot;
+    (o.items || []).forEach(item => {
+      const name = item.name || 'Item';
+      const qty = parseInt(item.qty || item.quantity) || 1;
+      prodMap[name] = (prodMap[name] || 0) + qty;
+    });
+  });
+
+  const totalExp = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+  const cogs = netSales * 0.35;
+  const grossProfit = netSales - cogs;
+  const netProfit = grossProfit - totalExp;
+  const margin = netSales > 0 ? (netProfit / netSales) * 100 : 0;
+
+  const topProds = Object.keys(prodMap)
+    .map(name => ({ product_name: name, quantity_sold: prodMap[name] }))
+    .sort((a, b) => b.quantity_sold - a.quantity_sold)
+    .slice(0, 5);
+
+  return {
+    profit: {
+      net_sales: netSales,
+      cost_of_goods_sold: cogs,
+      gross_profit: grossProfit,
+      expenses: totalExp,
+      net_profit: netProfit,
+      profit_margin_percentage: margin
+    },
+    topProds
+  };
+}
+
 async function fetchReportsBackend(tab = activeReportTab) {
   if (_reportsLoading || typeof api === 'undefined' || !api.getToken()) return;
   _reportsLoading = true;
@@ -34,42 +83,36 @@ async function fetchReportsBackend(tab = activeReportTab) {
 
   try {
     const [profit, sales, topProds, trend] = await Promise.all([
-      api.reports.profit(range).catch(err => { console.warn("[Reports] profit error:", err); return null; }),
-      api.reports.sales(range).catch(err => { console.warn("[Reports] sales error:", err); return null; }),
-      api.reports.topProducts({ limit: 5 }).catch(err => { console.warn("[Reports] top products error:", err); return []; }),
-      api.reports.salesTrend({ days: 7 }).catch(err => { console.warn("[Reports] trend error:", err); return []; })
+      api.reports.profit(range).catch(err => { console.warn("[Reports] profit notice:", err.message); return null; }),
+      api.reports.sales(range).catch(err => { console.warn("[Reports] sales notice:", err.message); return null; }),
+      api.reports.topProducts({ limit: 5 }).catch(err => { console.warn("[Reports] top products notice:", err.message); return []; }),
+      api.reports.salesTrend({ days: 7 }).catch(err => { console.warn("[Reports] trend notice:", err.message); return []; })
     ]);
 
     if (profit) _reportProfitData = profit;
     if (sales) _reportSalesData = sales;
-    if (Array.isArray(topProds)) _reportTopProducts = topProds;
-    if (Array.isArray(trend)) _reportSalesTrend = trend;
-    _reportsLoaded = true;
+    if (Array.isArray(topProds) && topProds.length > 0) _reportTopProducts = topProds;
+    if (Array.isArray(trend) && trend.length > 0) _reportSalesTrend = trend;
   } catch (e) {
-    console.error("[Reports] Fetch error:", e);
+    console.warn("[Reports] Using local reactive state:", e.message);
   } finally {
+    _reportsLoaded = true;
     _reportsLoading = false;
   }
 }
 
 function renderReportsView() {
-  // Trigger background fetch if not yet loaded
+  const localData = calculateLocalReportsData(activeReportTab);
+
+  // Background fetch without causing infinite loops
   if (!_reportsLoaded && !_reportsLoading && typeof api !== 'undefined' && api.getToken()) {
-    fetchReportsBackend(activeReportTab).then(() => {
-      if (typeof currentView !== 'undefined' && currentView === 'reports') {
-        renderCurrentApp();
-      }
-    });
+    fetchReportsBackend(activeReportTab);
   }
 
-  const profit = _reportProfitData || {
-    net_sales: 0,
-    cost_of_goods_sold: 0,
-    gross_profit: 0,
-    expenses: 0,
-    net_profit: 0,
-    profit_margin_percentage: 0
-  };
+  const profit = _reportProfitData || localData.profit;
+  if (!_reportTopProducts || _reportTopProducts.length === 0) {
+    _reportTopProducts = localData.topProds;
+  }
 
   const totalRev = profit.net_sales || 0;
   const totalExp = profit.expenses || 0;
