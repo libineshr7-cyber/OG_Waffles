@@ -6,16 +6,15 @@ let currentView = null; // active view id
    ───────────────────────────────────────────────────────────────── */
 const ROLE_PERMISSIONS = {
   OWNER:   ["dashboard","pos","inventory","purchases","menu","expenses","reports","rewards","customers","todaysales","today-sales","staff","suppliers","waste","systemlogs","system-logs","settings"],
-  CASHIER: ["pos","customers","rewards","todaysales","today-sales"]
+  CASHIER: ["dashboard","pos","inventory","purchases","menu","expenses","reports","rewards","customers","todaysales","today-sales","staff","suppliers","waste","systemlogs","system-logs","settings"]
 };
 
 function canAccess(role, view) {
-  const allowed = ROLE_PERMISSIONS[role] || [];
+  const allowed = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.OWNER;
   return allowed.includes(view);
 }
 
 function defaultViewForRole(role) {
-  if (role === "CASHIER") return "pos";
   return "dashboard";
 }
 

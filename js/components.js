@@ -63,12 +63,12 @@ function renderNavBar(activeView) {
           <i class="fas fa-bars text-sm"></i>
         </button>
 
-        <div class="cursor-pointer" onclick="navigate(store.getState().currentUser && store.getState().currentUser.role === 'CASHIER' ? 'pos' : 'dashboard')">
+        <div class="cursor-pointer" onclick="navigate('dashboard')">
           ${renderLogo('normal', true)}
         </div>
 
         <!-- Persistent Quick Navigation Hub (Visible on all tabs) -->
-        ${currentUser && role === 'OWNER' ? `
+        ${currentUser ? `
           <div class="hidden sm:flex items-center gap-1.5 pl-2 border-l border-gray-800">
             <button onclick="navigate('dashboard')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${activeView === 'dashboard' ? 'bg-gradient-to-r from-[#BF953F] to-[#AA771C] text-black shadow-md' : 'bg-[#141414] text-[#D4AF37] border border-[#D4AF37]/30 hover:bg-[#D4AF37]/15'}">
               <i class="fas fa-tachometer-alt"></i>
@@ -142,21 +142,21 @@ function renderSidebar(activeView) {
 
   // Must exactly mirror ROLE_PERMISSIONS in app.js (OWNER and CASHIER only)
   const navItems = [
-    { id: 'dashboard',  label: 'Live Dashboard',      icon: 'fa-tachometer-alt',  roles: ['OWNER'] },
+    { id: 'dashboard',  label: 'Live Dashboard',      icon: 'fa-tachometer-alt',  roles: ['OWNER', 'CASHIER'] },
     { id: 'pos',        label: 'POS Billing',          icon: 'fa-cash-register',   roles: ['OWNER', 'CASHIER'], highlight: true },
     { id: 'todaysales', label: "Today's Sales",        icon: 'fa-calendar-day',    roles: ['OWNER', 'CASHIER'] },
-    { id: 'inventory',  label: 'Inventory',            icon: 'fa-boxes',           roles: ['OWNER'] },
-    { id: 'purchases',  label: 'Purchases',            icon: 'fa-truck-loading',   roles: ['OWNER'] },
-    { id: 'menu',       label: 'Menu Management',      icon: 'fa-utensils',        roles: ['OWNER'] },
-    { id: 'expenses',   label: 'Expenses',             icon: 'fa-receipt',         roles: ['OWNER'] },
-    { id: 'reports',    label: 'Business Reports',     icon: 'fa-chart-bar',       roles: ['OWNER'] },
+    { id: 'inventory',  label: 'Inventory',            icon: 'fa-boxes',           roles: ['OWNER', 'CASHIER'] },
+    { id: 'purchases',  label: 'Purchases',            icon: 'fa-truck-loading',   roles: ['OWNER', 'CASHIER'] },
+    { id: 'menu',       label: 'Menu Management',      icon: 'fa-utensils',        roles: ['OWNER', 'CASHIER'] },
+    { id: 'expenses',   label: 'Expenses',             icon: 'fa-receipt',         roles: ['OWNER', 'CASHIER'] },
+    { id: 'reports',    label: 'Business Reports',     icon: 'fa-chart-bar',       roles: ['OWNER', 'CASHIER'] },
     { id: 'rewards',    label: 'Customer Rewards',     icon: 'fa-award',           roles: ['OWNER', 'CASHIER'] },
     { id: 'customers',  label: 'Customer Database',    icon: 'fa-users',           roles: ['OWNER', 'CASHIER'] },
-    { id: 'staff',      label: 'Staff Management',     icon: 'fa-user-tie',        roles: ['OWNER'] },
-    { id: 'suppliers',  label: 'Suppliers',            icon: 'fa-handshake',       roles: ['OWNER'] },
-    { id: 'waste',      label: 'Waste Log',            icon: 'fa-trash-alt',       roles: ['OWNER'] },
-    { id: 'systemlogs', label: 'System Logs',          icon: 'fa-history',         roles: ['OWNER'] },
-    { id: 'settings',   label: 'System Settings',      icon: 'fa-cog',             roles: ['OWNER'] }
+    { id: 'staff',      label: 'Staff Management',     icon: 'fa-user-tie',        roles: ['OWNER', 'CASHIER'] },
+    { id: 'suppliers',  label: 'Suppliers',            icon: 'fa-handshake',       roles: ['OWNER', 'CASHIER'] },
+    { id: 'waste',      label: 'Waste Log',            icon: 'fa-trash-alt',       roles: ['OWNER', 'CASHIER'] },
+    { id: 'systemlogs', label: 'System Logs',          icon: 'fa-history',         roles: ['OWNER', 'CASHIER'] },
+    { id: 'settings',   label: 'System Settings',      icon: 'fa-cog',             roles: ['OWNER', 'CASHIER'] }
   ];
 
   const filteredItems = navItems.filter(item => item.roles.includes(role));
