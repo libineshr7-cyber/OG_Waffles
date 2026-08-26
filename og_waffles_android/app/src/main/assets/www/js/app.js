@@ -85,6 +85,11 @@ async function initApp() {
   }
 
   forceHideLoader();
+
+  // Background automated 7-day report check
+  if (typeof checkAndAutoExportWeeklyReport === "function") {
+    setTimeout(checkAndAutoExportWeeklyReport, 2500);
+  }
 }
 
 function forceHideLoader() {

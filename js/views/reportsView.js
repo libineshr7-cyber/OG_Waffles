@@ -83,18 +83,42 @@ function renderReportsView() {
         <div>
           <span class="text-xs text-[#D4AF37] font-semibold tracking-widest uppercase">Executive Analytics</span>
           <h1 class="font-heading text-2xl font-extrabold text-white">Business Reports</h1>
-          <p class="text-xs text-gray-400">Authoritative Profit, COGS, and Outflow Metrics from Backend</p>
+          <p class="text-xs text-gray-400">Authoritative Profit, COGS, and Outflow Metrics & 7-Day PDF Exporter</p>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
           <button onclick="refreshReportsData()" class="btn-outline-dark text-xs py-2 px-3 flex items-center gap-1.5" title="Refresh Reports">
             <i class="fas fa-sync-alt ${_reportsLoading ? 'fa-spin text-[#D4AF37]' : ''}"></i> Refresh
           </button>
           <button onclick="exportReportsCSV()" class="btn-gold text-xs py-2 px-3">
             <i class="fas fa-file-csv"></i> Export CSV
           </button>
-          <button onclick="exportReportsPDF()" class="btn-gold-solid text-xs py-2 px-4">
-            <i class="fas fa-file-pdf"></i> Export PDF Report
+          <button id="btn-download-weekly-pdf" onclick="downloadWeeklyReportPdf()" class="btn-gold-solid text-xs py-2 px-4 shadow-[0_0_15px_rgba(212,175,55,0.4)] flex items-center gap-1.5 font-bold">
+            <i class="fas fa-file-pdf text-red-400"></i> Download 7-Day PDF Report
+          </button>
+        </div>
+      </div>
+
+      <!-- Weekly Automation Banner -->
+      <div class="glass-card p-4 border border-[#D4AF37]/30 bg-gradient-to-r from-[#141414] via-[#1a1710] to-[#141414] flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-[#D4AF37]/15 border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37] text-lg">
+            <i class="fas fa-calendar-check"></i>
+          </div>
+          <div>
+            <h3 class="font-heading text-sm font-bold text-white flex items-center gap-2">
+              7-Day Automated Weekly Report
+              <span class="bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase">Active (Every 7 Days)</span>
+            </h3>
+            <p class="text-[11px] text-gray-400 mt-0.5">
+              Includes gross revenue, COGS, net profit, top 10 items, payment methods, inventory status, and expense audits.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 w-full md:w-auto">
+          <button onclick="downloadWeeklyReportPdf()" class="btn-gold text-xs py-2 px-4 whitespace-nowrap w-full md:w-auto flex items-center justify-center gap-1.5">
+            <i class="fas fa-download text-black"></i> Export 7-Day PDF Now
           </button>
         </div>
       </div>
@@ -249,6 +273,10 @@ async function exportReportsCSV() {
 }
 
 function exportReportsPDF() {
-  window.print();
+  if (typeof downloadWeeklyReportPdf === "function") {
+    downloadWeeklyReportPdf();
+  } else {
+    window.print();
+  }
 }
 
