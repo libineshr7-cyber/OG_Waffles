@@ -508,9 +508,9 @@ const INITIAL_DATA = {
     { id: "WST-301", date: "2026-08-18", ingredientId: "ING-01", ingredientName: "Frozen Chicken", qty: 250, reason: "Thaw damage", loggedBy: "Dominic Sterling" }
   ],
 
-  notifications: [
-    { id: "NOT-01", title: "System Ready", message: "OG Waffles Direct Inventory & POS system initialized", type: "info", timestamp: "2026-08-19 10:00" }
+  notifications: [],
+  systemLogs: [
+    { id: "LOG-INIT-01", timestamp: "2026-08-19 10:00:00", module: "SYSTEM", action: "SYSTEM_INITIALIZED", details: "OG Waffles Direct Inventory & POS system initialized successfully", user: "System", role: "SYSTEM", level: "info" }
   ],
-
   stockMovements: []
 };

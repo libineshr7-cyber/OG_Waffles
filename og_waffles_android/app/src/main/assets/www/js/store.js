@@ -33,6 +33,7 @@ class Store {
           if (!this.state.menuCategories)  this.state.menuCategories = [];
           if (!this.state.wasteLogs)       this.state.wasteLogs = [];
           if (!this.state.notifications)   this.state.notifications = [];
+          if (!this.state.systemLogs)      this.state.systemLogs = [];
           if (!this.state.purchases)       this.state.purchases = [];
           if (!this.state.customers)       this.state.customers = [];
           if (!this.state.staff)           this.state.staff = [];
@@ -701,21 +702,135 @@ class Store {
   }
 
   // --- SETTINGS & NOTIFICATIONS ---
+  // --- SETTINGS, SYSTEM LOGS & NOTIFICATIONS ---
   updateSettings(newSettings) {
     this.state.settings = { ...this.state.settings, ...newSettings };
     this.addNotification("Settings Saved", "Updated business settings successfully", "success");
     this.saveState();
   }
 
-  addNotification(title, message, type = "info") {
-    const notif = {
-      id: `NOT-${Date.now()}`,
-      title,
-      message,
-      type,
-      timestamp: new Date().toISOString().replace("T", " ").substring(0, 16)
+  logActivity(module, action, details, level = "info") {
+    if (!this.state.systemLogs) this.state.systemLogs = [];
+    const user = this.state.currentUser;
+    const entry = {
+      id: `LOG-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toISOString().replace("T", " ").substring(0, 19),
+      module: (module || "SYSTEM").toUpperCase(),
+      action: action || "ACTIVITY",
+      details: details || "",
+      user: user ? user.name : "System",
+      role: user ? user.role : "SYSTEM",
+      level: level // 'info' | 'success' | 'warning' | 'danger'
     };
-    this.state.notifications.unshift(notif);
+    this.state.systemLogs.unshift(entry);
+    if (this.state.systemLogs.length > 500) {
+      this.state.systemLogs = this.state.systemLogs.slice(0, 500);
+    }
+    this.saveState();
+    return entry;
+  }
+
+  clearSystemLogs() {
+    this.state.systemLogs = [];
+    this.saveState();
+  }
+
+  addNotification(title, message, type = "info") {
+    const text = (title + " " + message).toLowerCase();
+    const isShortage = 
+      type === "shortage" ||
+      text.includes("out of stock") ||
+      text.includes("low stock") ||
+      text.includes("stock alert") ||
+      text.includes("product shortage") ||
+      text.includes("running low") ||
+      text.includes("stock shortage") ||
+      text.includes("below minimum limit");
+
+    // Notification center strictly tracks Product/Inventory shortages
+    if (isShortage) {
+      const notif = {
+        id: `NOT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        title,
+        message,
+        type: type === "danger" || text.includes("out of stock") ? "danger" : "warning",
+        timestamp: new Date().toISOString().replace("T", " ").substring(0, 16)
+      };
+      if (!this.state.notifications) this.state.notifications = [];
+      this.state.notifications.unshift(notif);
+      if (this.state.notifications.length > 50) {
+        this.state.notifications = this.state.notifications.slice(0, 50);
+      }
+    }
+
+    // All events are cleanly and permanently logged in System Activity Logs
+    const moduleMap = {
+      "Product": "MENU",
+      "Menu": "MENU",
+      "Category": "MENU",
+      "Sale": "POS",
+      "Invoice": "POS",
+      "Customer": "CUSTOMERS",
+      "Purchase": "INVENTORY",
+      "Waste": "INVENTORY",
+      "Stock": "INVENTORY",
+      "Expense": "EXPENSES",
+      "Settings": "SETTINGS",
+      "Staff": "STAFF"
+    };
+
+    let detectedModule = "SYSTEM";
+    for (const [k, v] of Object.entries(moduleMap)) {
+      if (title.includes(k) || message.includes(k)) {
+        detectedModule = v;
+        break;
+      }
+    }
+
+    this.logActivity(
+      detectedModule,
+      title.toUpperCase().replace(/\s+/g, "_"),
+      message,
+      type === "danger" ? "danger" : type === "warning" ? "warning" : type === "success" ? "success" : "info"
+    );
+  }
+
+  getShortageAlerts() {
+    const alerts = [];
+    const ings = this.state.ingredients || [];
+    ings.forEach(ing => {
+      const qty = parseFloat(ing.currentQty) || 0;
+      const min = parseFloat(ing.minLimit) || 5;
+      const unit = ing.baseUnit || ing.unit || "unit";
+      if (qty <= 0) {
+        alerts.push({
+          id: `SHORT-ZERO-${ing.id}`,
+          title: "Out of Stock Alert",
+          message: `"${ing.name}" is completely out of stock (0 ${unit} remaining)`,
+          type: "danger",
+          ingredientId: ing.id,
+          name: ing.name,
+          currentQty: qty,
+          minLimit: min,
+          unit: unit,
+          timestamp: ing.lastUpdated || "Live Alert"
+        });
+      } else if (qty <= min) {
+        alerts.push({
+          id: `SHORT-LOW-${ing.id}`,
+          title: "Low Stock Alert",
+          message: `"${ing.name}" is running low (${qty} ${unit} / Min: ${min} ${unit})`,
+          type: "warning",
+          ingredientId: ing.id,
+          name: ing.name,
+          currentQty: qty,
+          minLimit: min,
+          unit: unit,
+          timestamp: ing.lastUpdated || "Live Alert"
+        });
+      }
+    });
+    return alerts;
   }
 
   clearNotifications() {

@@ -51,7 +51,8 @@ function renderLogo(size = 'normal', showSub = true) {
 function renderNavBar(activeView) {
   const state = store.getState();
   const currentUser = state.currentUser;
-  const unreadNotifs = state.notifications.length;
+  const shortageAlerts = typeof store.getShortageAlerts === 'function' ? store.getShortageAlerts() : (state.notifications || []);
+  const unreadNotifs = shortageAlerts.length;
 
   return `
     <header class="sticky top-0 z-40 bg-[#0B0B0B]/90 backdrop-blur-md border-b border-[#D4AF37]/20 px-4 py-3 flex items-center justify-between shadow-lg">
@@ -69,11 +70,11 @@ function renderNavBar(activeView) {
           <kbd class="bg-black/50 px-1.5 py-0.5 rounded text-[10px] text-gray-500 border border-gray-800">⌘K</kbd>
         </button>
 
-        <!-- Notifications Bell -->
-        <button onclick="toggleNotifications()" class="relative p-2 rounded-xl bg-[#141414] border border-[#D4AF37]/20 text-gray-300 hover:text-[#D4AF37] hover:border-[#D4AF37] transition-all">
+        <!-- Product Shortages Notification Bell -->
+        <button onclick="toggleNotifications()" class="relative p-2 rounded-xl bg-[#141414] border ${unreadNotifs > 0 ? 'border-amber-500/50 text-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.25)]' : 'border-[#D4AF37]/20 text-gray-300'} hover:text-[#D4AF37] hover:border-[#D4AF37] transition-all" title="Product Shortage Alerts">
           <i class="fas fa-bell text-sm"></i>
           ${unreadNotifs > 0 ? `
-            <span class="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center animate-pulse">
+            <span class="absolute -top-1 -right-1 bg-red-600 text-white text-[9px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center animate-pulse shadow-md">
               ${unreadNotifs > 9 ? '9+' : unreadNotifs}
             </span>
           ` : ''}
@@ -123,6 +124,7 @@ function renderSidebar(activeView) {
     { id: 'staff',      label: 'Staff Management',     icon: 'fa-user-tie',        roles: ['OWNER'] },
     { id: 'suppliers',  label: 'Suppliers',            icon: 'fa-handshake',       roles: ['OWNER'] },
     { id: 'waste',      label: 'Waste Log',            icon: 'fa-trash-alt',       roles: ['OWNER'] },
+    { id: 'systemlogs', label: 'System Logs',          icon: 'fa-history',         roles: ['OWNER'] },
     { id: 'settings',   label: 'System Settings',      icon: 'fa-cog',             roles: ['OWNER'] }
   ];
 
@@ -168,17 +170,21 @@ function renderSidebar(activeView) {
   `;
 }
 
-// 4. NOTIFICATION CENTER DRAWER
+// 4. NOTIFICATION CENTER DRAWER — STRICTLY PRODUCT & STOCK SHORTAGE ALERTS
 function renderNotificationDrawer() {
-  const state = store.getState();
-  const notifs = state.notifications;
+  const shortageAlerts = typeof store.getShortageAlerts === 'function' ? store.getShortageAlerts() : [];
 
   return `
-    <div id="notif-drawer" class="fixed inset-y-0 right-0 w-80 bg-[#141414] border-l border-[#D4AF37]/30 shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col">
-      <div class="p-4 border-b border-[#D4AF37]/20 flex items-center justify-between bg-[#0B0B0B]">
+    <div id="notif-drawer" class="fixed inset-y-0 right-0 w-80 sm:w-96 bg-[#141414] border-l border-amber-500/30 shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col">
+      <div class="p-4 border-b border-amber-500/20 flex items-center justify-between bg-[#0B0B0B]">
         <div class="flex items-center gap-2">
-          <i class="fas fa-bell text-[#D4AF37]"></i>
-          <h3 class="font-heading text-sm text-white font-bold">Notification Center</h3>
+          <div class="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
+            <i class="fas fa-exclamation-triangle text-amber-400 text-xs"></i>
+          </div>
+          <div>
+            <h3 class="font-heading text-sm text-white font-bold">Product Shortage Alerts</h3>
+            <p class="text-[10px] text-gray-500">${shortageAlerts.length} active shortage${shortageAlerts.length === 1 ? '' : 's'}</p>
+          </div>
         </div>
         <button onclick="toggleNotifications()" class="text-gray-400 hover:text-white">
           <i class="fas fa-times"></i>
@@ -186,29 +192,50 @@ function renderNotificationDrawer() {
       </div>
 
       <div class="flex-1 overflow-y-auto p-4 space-y-3">
-        ${notifs.length === 0 ? `
-          <div class="text-center py-12 text-gray-500 text-xs">
-            <i class="fas fa-check-circle text-2xl mb-2 text-[#D4AF37]/40"></i>
-            <p>No new notifications</p>
-          </div>
-        ` : notifs.map(n => `
-          <div class="p-3 rounded-xl bg-black/50 border border-gray-800 hover:border-[#D4AF37]/40 transition-all text-xs">
-            <div class="flex items-center justify-between mb-1">
-              <span class="font-bold text-white">${n.title}</span>
-              <span class="text-[9px] text-gray-500">${n.timestamp}</span>
+        ${shortageAlerts.length === 0 ? `
+          <div class="text-center py-16 text-gray-500 text-xs space-y-3">
+            <div class="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400">
+              <i class="fas fa-check-circle text-xl"></i>
             </div>
-            <p class="text-gray-300 text-[11px] leading-snug">${n.message}</p>
+            <p class="text-white font-semibold">Stock Levels Optimal</p>
+            <p class="text-[11px] text-gray-500 max-w-xs mx-auto">No inventory items are currently running low or out of stock.</p>
+          </div>
+        ` : shortageAlerts.map(alert => `
+          <div class="p-3.5 rounded-xl ${alert.type === 'danger' ? 'bg-red-950/20 border-red-500/40' : 'bg-amber-950/20 border-amber-500/40'} border text-xs space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="inline-flex items-center gap-1.5 font-bold ${alert.type === 'danger' ? 'text-red-400' : 'text-amber-400'}">
+                <i class="fas ${alert.type === 'danger' ? 'fa-ban' : 'fa-exclamation-triangle'} text-[10px]"></i>
+                ${alert.title}
+              </span>
+              <span class="text-[9px] text-gray-500 font-mono">${alert.timestamp || 'Live'}</span>
+            </div>
+
+            <p class="text-gray-200 text-xs leading-snug font-medium">${alert.message}</p>
+
+            ${alert.currentQty !== undefined ? `
+              <div class="flex items-center justify-between pt-1 border-t border-gray-800/80 text-[10px]">
+                <span class="text-gray-400">Current Stock: <strong class="${alert.currentQty <= 0 ? 'text-red-400' : 'text-amber-300'}">${alert.currentQty} ${alert.unit}</strong></span>
+                <span class="text-gray-500">Min Limit: ${alert.minLimit} ${alert.unit}</span>
+              </div>
+            ` : ''}
+
+            <div class="pt-1">
+              <button onclick="navigate('inventory'); toggleNotifications();" class="w-full text-center py-1 rounded-lg bg-white/5 hover:bg-amber-500/20 hover:text-amber-300 border border-gray-700 hover:border-amber-500/40 transition-colors text-[10px] font-semibold text-gray-300">
+                <i class="fas fa-boxes mr-1 text-amber-400"></i> Restock in Inventory
+              </button>
+            </div>
           </div>
         `).join('')}
       </div>
 
-      ${notifs.length > 0 ? `
-        <div class="p-3 border-t border-gray-800 bg-[#0B0B0B]">
-          <button onclick="clearNotifs()" class="w-full btn-outline-dark text-xs py-1.5">
-            Clear All Notifications
-          </button>
-        </div>
-      ` : ''}
+      <div class="p-3 border-t border-gray-800 bg-[#0B0B0B] flex items-center justify-between gap-2">
+        <button onclick="navigate('systemlogs'); toggleNotifications();" class="w-1/2 btn-outline-dark text-xs py-1.5 text-center">
+          <i class="fas fa-history mr-1"></i> System Logs
+        </button>
+        <button onclick="navigate('inventory'); toggleNotifications();" class="w-1/2 btn-gold text-xs py-1.5 text-center">
+          <i class="fas fa-boxes mr-1"></i> View Inventory
+        </button>
+      </div>
     </div>
   `;
 }
