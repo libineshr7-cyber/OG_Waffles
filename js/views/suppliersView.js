@@ -6,7 +6,7 @@ function renderSuppliersView() {
   const settings = state.settings;
 
   return `
-    <div class="p-6 space-y-6 animate-fade-in">
+    <div class="p-6 space-y-6">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#D4AF37]/20 pb-4">
         <div>
           <span class="text-xs text-[#D4AF37] font-semibold tracking-widest uppercase">Vendor Network</span>

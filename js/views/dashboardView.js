@@ -167,7 +167,7 @@ function renderDashboardView() {
   const lowStockCount = (m.inventory.low_stock_count || 0) + (m.inventory.out_of_stock_count || 0);
 
   return `
-    <div class="p-6 space-y-8 animate-fade-in">
+    <div class="p-6 space-y-8">
       <!-- Top Title & Quick Actions Toolbar -->
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#D4AF37]/20 pb-4">
         <div>

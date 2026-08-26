@@ -8,14 +8,14 @@ async function fetchPurchasesBackend() {
   if (_purchasesLoading || typeof api === 'undefined' || !api.getToken()) return;
   _purchasesLoading = true;
   try {
-    const list = await api.purchases.list().catch(err => { console.warn("[Purchases] Fetch error:", err); return []; });
+    const list = await api.purchases.list().catch(err => { console.warn("[Purchases] Fetch notice:", err); return null; });
     if (Array.isArray(list)) {
       _purchasesList = list;
-      _purchasesLoaded = true;
     }
   } catch (e) {
-    console.error("[Purchases] Error:", e);
+    console.warn("[Purchases] Error:", e);
   } finally {
+    _purchasesLoaded = true;
     _purchasesLoading = false;
   }
 }
@@ -25,7 +25,7 @@ function renderPurchaseView() {
   const ingredients = state.ingredients || [];
   const suppliers = state.suppliers || [];
 
-  // Trigger background fetch if not yet loaded
+  // Trigger background fetch once without infinite re-render loop
   if (!_purchasesLoaded && !_purchasesLoading && typeof api !== 'undefined' && api.getToken()) {
     fetchPurchasesBackend().then(() => {
       if (typeof currentView !== 'undefined' && currentView === 'purchases') {
@@ -34,10 +34,10 @@ function renderPurchaseView() {
     });
   }
 
-  const purchases = _purchasesList || [];
+  const purchases = (_purchasesList && _purchasesList.length > 0) ? _purchasesList : (state.purchases || []);
 
   return `
-    <div class="p-6 space-y-6 animate-fade-in max-w-7xl mx-auto">
+    <div class="p-6 space-y-6 max-w-7xl mx-auto">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#D4AF37]/20 pb-4">
         <div>
           <span class="text-xs text-[#D4AF37] font-semibold tracking-widest uppercase">Procurement Engine</span>

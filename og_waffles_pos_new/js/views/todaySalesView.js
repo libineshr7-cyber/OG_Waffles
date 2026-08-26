@@ -11,16 +11,16 @@ async function fetchTodaySalesBackend() {
   try {
     const todayStr = new Date().toISOString().split('T')[0];
     const [summary, list] = await Promise.all([
-      api.sales.today().catch(err => { console.warn("[TodaySales] Summary fetch error:", err); return null; }),
-      api.sales.list({ date_from: todayStr, date_to: todayStr }).catch(err => { console.warn("[TodaySales] List fetch error:", err); return []; })
+      api.sales.today().catch(err => { console.warn("[TodaySales] Summary fetch notice:", err); return null; }),
+      api.sales.list({ date_from: todayStr, date_to: todayStr }).catch(err => { console.warn("[TodaySales] List fetch notice:", err); return []; })
     ]);
 
     if (summary) _todaySalesSummary = summary;
     if (Array.isArray(list)) _todaySalesList = list;
-    _todaySalesLoaded = true;
   } catch (e) {
-    console.error("[TodaySales] Backend fetch failed:", e);
+    console.warn("[TodaySales] Notice:", e.message);
   } finally {
+    _todaySalesLoaded = true;
     _todaySalesLoading = false;
   }
 }
@@ -31,25 +31,41 @@ function renderTodaySalesView() {
   const isOwner = currentUser && currentUser.role === 'OWNER';
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // Trigger background fetch if not yet loaded
+  // Trigger background fetch once without infinite re-render loop
   if (!_todaySalesLoaded && !_todaySalesLoading && typeof api !== 'undefined' && api.getToken()) {
     fetchTodaySalesBackend().then(() => {
-      if (typeof currentView !== 'undefined' && currentView === 'today-sales') {
+      if (typeof currentView !== 'undefined' && (currentView === 'today-sales' || currentView === 'todaysales')) {
         renderCurrentApp();
       }
     });
   }
 
+  // Reactive local calculation fallback
+  const localTodayOrders = (state.orders || []).filter(o => {
+    const d = o.created_at || o.sale_date || o.date;
+    return d && d.startsWith(todayStr);
+  });
+
+  const localGross = localTodayOrders.reduce((sum, o) => sum + (parseFloat(o.total || o.grandTotal) || 0), 0);
+  const localNet = localTodayOrders.reduce((sum, o) => sum + (parseFloat(o.subtotal || o.total || o.grandTotal) || 0), 0);
+  const localTender = { cash: 0, upi: 0, card: 0, split: 0 };
+  localTodayOrders.forEach(o => {
+    const m = (o.paymentMethod || (o.payments && o.payments[0] && o.payments[0].payment_method) || 'CASH').toUpperCase();
+    const tot = parseFloat(o.total || o.grandTotal) || 0;
+    if (m === 'CASH') localTender.cash += tot;
+    else if (m === 'UPI') localTender.upi += tot;
+    else if (m === 'CARD') localTender.card += tot;
+    else localTender.split += tot;
+  });
+
   const summary = _todaySalesSummary || {
-    number_of_bills: 0,
-    gross_sales: 0,
-    discount_total: 0,
+    number_of_bills: localTodayOrders.length,
+    gross_sales: localGross,
+    net_sales: localNet,
+    tender_breakdown: localTender,
+    discounts_total: 0,
     tax_total: 0,
-    net_sales: 0,
-    cash_total: 0,
-    upi_total: 0,
-    card_total: 0,
-    split_total: 0
+    void_count: 0
   };
 
   const totalSales = summary.net_sales || 0;
@@ -69,7 +85,7 @@ function renderTodaySalesView() {
   });
 
   return `
-    <div class="p-6 space-y-6 animate-fade-in max-w-6xl mx-auto">
+    <div class="p-6 space-y-6 max-w-6xl mx-auto">
       <!-- Header -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#D4AF37]/20 pb-4">
         <div>

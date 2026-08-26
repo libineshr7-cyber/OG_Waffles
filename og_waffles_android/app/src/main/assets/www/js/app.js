@@ -27,12 +27,18 @@ async function initApp() {
     forceHideLoader();
   });
 
+  let _subscriberRenderPending = false;
   store.subscribe(() => {
-    try {
-      renderCurrentApp();
-    } catch(e) {
-      console.error('[OG Waffles] renderCurrentApp error in subscriber:', e);
-    }
+    if (_subscriberRenderPending) return;
+    _subscriberRenderPending = true;
+    (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : setTimeout)(() => {
+      _subscriberRenderPending = false;
+      try {
+        renderCurrentApp();
+      } catch(e) {
+        console.warn('[OG Waffles] Render warning in subscriber:', e);
+      }
+    }, 16);
   });
 
   // Global Keyboard Shortcuts (Cmd+K / Ctrl+K for Search)

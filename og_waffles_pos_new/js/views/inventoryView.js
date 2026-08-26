@@ -17,7 +17,7 @@ function renderInventoryView() {
   });
 
   return `
-    <div class="p-6 space-y-6 animate-fade-in max-w-7xl mx-auto">
+    <div class="p-6 space-y-6 max-w-7xl mx-auto">
       <!-- Title & Action Header -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#D4AF37]/20 pb-4">
         <div>

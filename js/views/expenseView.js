@@ -8,14 +8,14 @@ async function fetchExpensesBackend() {
   if (_expensesLoading || typeof api === 'undefined' || !api.getToken()) return;
   _expensesLoading = true;
   try {
-    const list = await api.expenses.list().catch(err => { console.warn("[Expenses] Fetch error:", err); return []; });
+    const list = await api.expenses.list().catch(err => { console.warn("[Expenses] Fetch notice:", err); return null; });
     if (Array.isArray(list)) {
       _expensesList = list.filter(e => !e.is_deleted);
-      _expensesLoaded = true;
     }
   } catch (e) {
-    console.error("[Expenses] Error:", e);
+    console.warn("[Expenses] Error:", e);
   } finally {
+    _expensesLoaded = true;
     _expensesLoading = false;
   }
 }
@@ -25,7 +25,7 @@ function renderExpenseView() {
   const currentUser = state.currentUser;
   const isOwner = currentUser && currentUser.role === 'OWNER';
 
-  // Trigger background fetch if not yet loaded
+  // Trigger background fetch once without infinite re-render loop
   if (!_expensesLoaded && !_expensesLoading && typeof api !== 'undefined' && api.getToken()) {
     fetchExpensesBackend().then(() => {
       if (typeof currentView !== 'undefined' && currentView === 'expenses') {
@@ -34,13 +34,21 @@ function renderExpenseView() {
     });
   }
 
-  const expenses = _expensesList || [];
+  const localExpenses = (state.expenses || []).map(e => ({
+    id: e.id,
+    amount: e.amount,
+    category: e.category,
+    description: e.description || e.notes || '',
+    expense_date: e.date || new Date().toISOString()
+  }));
+
+  const expenses = (_expensesList && _expensesList.length > 0) ? _expensesList : localExpenses;
   const totalExpense = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
 
   const categories = ["Rent", "Electricity", "Salary", "Ingredients", "Packaging", "Marketing", "Maintenance", "Fuel", "Transport", "Internet", "Miscellaneous", "Other"];
 
   return `
-    <div class="p-6 space-y-6 animate-fade-in">
+    <div class="p-6 space-y-6">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#D4AF37]/20 pb-4">
         <div>
           <span class="text-xs text-[#D4AF37] font-semibold tracking-widest uppercase">Financial Outflow Tracker</span>

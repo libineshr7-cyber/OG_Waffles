@@ -6,7 +6,7 @@ function renderSettingsView() {
   const currentBaseUrl = (typeof api !== 'undefined' && api && api.baseUrl) ? api.baseUrl : (typeof window !== 'undefined' && window.location ? window.location.origin : 'http://localhost:8000');
 
   return `
-    <div class="p-6 space-y-6 animate-fade-in max-w-5xl mx-auto">
+    <div class="p-6 space-y-6 max-w-5xl mx-auto">
       <div class="border-b border-[#D4AF37]/20 pb-4">
         <span class="text-xs text-[#D4AF37] font-semibold tracking-widest uppercase">System Control & Branding</span>
         <h1 class="font-heading text-2xl font-extrabold text-white">System Settings</h1>
