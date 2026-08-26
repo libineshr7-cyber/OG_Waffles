@@ -279,13 +279,7 @@ function navigate(viewId) {
   const state = store.getState();
   const currentUser = state.currentUser;
 
-  if (viewId === "login") {
-    currentView = "login";
-    renderCurrentApp();
-    return;
-  }
-
-  if (!currentUser) {
+  if (viewId === "login" || !currentUser) {
     currentView = "login";
     renderCurrentApp();
     return;
@@ -293,53 +287,14 @@ function navigate(viewId) {
 
   const role = currentUser.role;
   if (!canAccess(role, viewId)) {
-    currentView = viewId;
+    console.warn(`[Navigation] Role ${role} cannot access ${viewId}`);
+    currentView = defaultViewForRole(role);
     renderCurrentApp();
     return;
   }
 
   currentView = viewId;
   renderCurrentApp();
-
-  // Background refresh for master data views to keep UI authoritative
-  if (["menu", "pos", "inventory", "suppliers", "customers", "rewards"].includes(viewId)) {
-    store.loadMasterData().then(() => {
-      // Re-render if view has not changed
-      if (currentView === viewId) {
-        renderCurrentApp();
-      }
-    }).catch(() => {});
-  } else if (viewId === "today-sales" && typeof fetchTodaySalesBackend === "function") {
-    fetchTodaySalesBackend().then(() => {
-      if (currentView === "today-sales") {
-        renderCurrentApp();
-      }
-    }).catch(() => {});
-  } else if (viewId === "dashboard" && typeof fetchDashboardBackend === "function") {
-    fetchDashboardBackend().then(() => {
-      if (currentView === "dashboard") {
-        renderCurrentApp();
-      }
-    }).catch(() => {});
-  } else if (viewId === "reports" && typeof fetchReportsBackend === "function") {
-    fetchReportsBackend(activeReportTab).then(() => {
-      if (currentView === "reports") {
-        renderCurrentApp();
-      }
-    }).catch(() => {});
-  } else if (viewId === "purchases" && typeof fetchPurchasesBackend === "function") {
-    fetchPurchasesBackend().then(() => {
-      if (currentView === "purchases") {
-        renderCurrentApp();
-      }
-    }).catch(() => {});
-  } else if (viewId === "expenses" && typeof fetchExpensesBackend === "function") {
-    fetchExpensesBackend().then(() => {
-      if (currentView === "expenses") {
-        renderCurrentApp();
-      }
-    }).catch(() => {});
-  }
 }
 
 function switchSection(section) {
@@ -445,6 +400,19 @@ function handleGlobalSearch(query) {
 function renderView(view) {
   if (view) currentView = view;
   renderCurrentApp();
+}
+
+// Attach all functions to global window to ensure inline HTML onclick handlers work 100%
+if (typeof window !== 'undefined') {
+  window.navigate = navigate;
+  window.renderView = renderView;
+  window.renderCurrentApp = renderCurrentApp;
+  window.logout = logout;
+  window.toggleNotifications = toggleNotifications;
+  window.clearNotifs = clearNotifs;
+  window.toggleGlobalSearch = toggleGlobalSearch;
+  window.handleGlobalSearch = handleGlobalSearch;
+  window.toggleMobileSidebar = typeof toggleMobileSidebar === 'function' ? toggleMobileSidebar : () => {};
 }
 
 document.addEventListener("DOMContentLoaded", initApp);
