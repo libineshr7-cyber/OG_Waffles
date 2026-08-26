@@ -145,7 +145,7 @@ function renderDashboardView() {
   const localData = calculateLocalDashboardData();
 
   // Background fetch without causing infinite loops
-  if (!_dashboardLoaded && !_dashboardLoading && typeof api !== 'undefined' && api.getToken()) {
+  if (!_dashboardLoaded && !_dashboardLoading && typeof api !== 'undefined' && api.getToken() && !api.getToken().startsWith('local_')) {
     fetchDashboardBackend();
   }
 
@@ -155,16 +155,20 @@ function renderDashboardView() {
     _dashboardSalesTrend = localData.salesTrend;
   }
 
-  const todayRevenue = m.today.sales || 0;
-  const todayProfit = m.today.profit || 0;
-  const todaySalesCount = m.today.bills || 0;
-  const todayCash = m.today.cash_total || 0;
-  const todayUpi = m.today.upi_total || 0;
-  const todayCard = m.today.card_total || 0;
-  const todaySplit = m.today.split_total || 0;
-  const monthSales = m.this_month.sales || 0;
-  const monthProfit = m.this_month.profit || 0;
-  const lowStockCount = (m.inventory.low_stock_count || 0) + (m.inventory.out_of_stock_count || 0);
+  const todayRevenue = (m && m.today && m.today.sales !== undefined) ? m.today.sales : (localData.metrics.today.sales || 0);
+  const todayProfit = (m && m.today && m.today.profit !== undefined) ? m.today.profit : (localData.metrics.today.profit || 0);
+  const todaySalesCount = (m && m.today && m.today.bills !== undefined) ? m.today.bills : (localData.metrics.today.bills || 0);
+  const todayCash = (m && m.today && m.today.cash_total !== undefined) ? m.today.cash_total : (localData.metrics.today.cash_total || 0);
+  const todayUpi = (m && m.today && m.today.upi_total !== undefined) ? m.today.upi_total : (localData.metrics.today.upi_total || 0);
+  const todayCard = (m && m.today && m.today.card_total !== undefined) ? m.today.card_total : (localData.metrics.today.card_total || 0);
+  const todaySplit = (m && m.today && m.today.split_total !== undefined) ? m.today.split_total : (localData.metrics.today.split_total || 0);
+  const monthSales = (m && m.this_month && m.this_month.sales !== undefined) ? m.this_month.sales : (localData.metrics.this_month.sales || 0);
+  const monthProfit = (m && m.this_month && m.this_month.profit !== undefined) ? m.this_month.profit : (localData.metrics.this_month.profit || 0);
+  const totalActiveCustomers = (m && m.customers && m.customers.total_active_customers !== undefined) ? m.customers.total_active_customers : (localData.metrics.customers.total_active_customers || 0);
+  const newCustomersMonth = (m && m.customers && m.customers.new_customers_this_month !== undefined) ? m.customers.new_customers_this_month : (localData.metrics.customers.new_customers_this_month || 0);
+  const totalInventoryVal = (m && m.inventory && m.inventory.total_inventory_value !== undefined) ? m.inventory.total_inventory_value : (localData.metrics.inventory.total_inventory_value || 0);
+  const eligibleRewardsCount = (m && m.rewards && m.rewards.eligible_customers_count !== undefined) ? m.rewards.eligible_customers_count : (localData.metrics.rewards.eligible_customers_count || 0);
+  const lowStockCount = ((m && m.inventory && m.inventory.low_stock_count) || localData.metrics.inventory.low_stock_count || 0) + ((m && m.inventory && m.inventory.out_of_stock_count) || localData.metrics.inventory.out_of_stock_count || 0);
 
   return `
     <div class="p-6 space-y-8">
@@ -231,7 +235,7 @@ function renderDashboardView() {
             <span class="text-emerald-400 font-bold text-base">₹</span>
           </div>
           <div class="text-2xl font-extrabold text-emerald-400 font-heading">${formatCurrency(todayProfit)}</div>
-          <div class="text-[10px] text-gray-400">Net after expenses: ₹${formatCurrency(m.today.expenses || 0)}</div>
+          <div class="text-[10px] text-gray-400">Net after expenses: ₹${formatCurrency((m && m.today && m.today.expenses) || 0)}</div>
         </div>
 
         <!-- Today's Orders -->
@@ -285,7 +289,7 @@ function renderDashboardView() {
         <div class="glass-panel p-4 rounded-xl flex items-center justify-between">
           <div>
             <span class="text-gray-400 text-[10px]">TOTAL CUSTOMERS</span>
-            <span class="block text-lg font-bold text-white">${m.customers.total_active_customers}</span>
+            <span class="block text-lg font-bold text-white">${totalActiveCustomers}</span>
           </div>
           <i class="fas fa-users text-gray-500 text-xl"></i>
         </div>
@@ -293,7 +297,7 @@ function renderDashboardView() {
         <div class="glass-panel p-4 rounded-xl flex items-center justify-between">
           <div>
             <span class="text-gray-400 text-[10px]">NEW THIS MONTH</span>
-            <span class="block text-lg font-bold text-emerald-400">+${m.customers.new_customers_this_month}</span>
+            <span class="block text-lg font-bold text-emerald-400">+${newCustomersMonth}</span>
           </div>
           <i class="fas fa-user-plus text-emerald-400/60 text-xl"></i>
         </div>
@@ -301,7 +305,7 @@ function renderDashboardView() {
         <div class="glass-panel p-4 rounded-xl flex items-center justify-between">
           <div>
             <span class="text-gray-400 text-[10px]">INVENTORY VALUE</span>
-            <span class="block text-sm font-bold text-[#D4AF37]">${formatCurrency(m.inventory.total_inventory_value || 0)}</span>
+            <span class="block text-sm font-bold text-[#D4AF37]">${formatCurrency(totalInventoryVal)}</span>
           </div>
           <i class="fas fa-warehouse text-[#D4AF37]/60 text-xl"></i>
         </div>
@@ -309,7 +313,7 @@ function renderDashboardView() {
         <div class="glass-panel p-4 rounded-xl flex items-center justify-between">
           <div>
             <span class="text-gray-400 text-[10px]">ELIGIBLE REWARDS</span>
-            <span class="block text-lg font-bold text-amber-300">${m.rewards.eligible_customers_count || 0}</span>
+            <span class="block text-lg font-bold text-amber-300">${eligibleRewardsCount}</span>
           </div>
           <i class="fas fa-gift text-amber-400 text-xl"></i>
         </div>
@@ -324,7 +328,7 @@ function renderDashboardView() {
               <h3 class="font-heading font-bold text-base text-white">Daily Revenue Trend</h3>
               <p class="text-xs text-gray-400">Authoritative POS Sales Performance (in ₹)</p>
             </div>
-            <span class="badge-gold">Live Backend Data</span>
+            <span class="badge-gold">Live Business Trend</span>
           </div>
 
           <div class="h-64 flex items-center justify-center relative">
@@ -336,7 +340,7 @@ function renderDashboardView() {
         <div class="glass-card p-6 space-y-4 flex flex-col justify-between">
           <div class="flex items-center justify-between border-b border-gray-800 pb-3">
             <h3 class="font-heading font-bold text-base text-white">Recent Completed Orders</h3>
-            <button onclick="navigate('today-sales')" class="text-xs text-[#D4AF37] hover:underline">View All</button>
+            <button onclick="navigate('todaysales')" class="text-xs text-[#D4AF37] hover:underline">View All</button>
           </div>
 
           <div class="space-y-3 overflow-y-auto max-h-72 text-xs">
@@ -344,9 +348,10 @@ function renderDashboardView() {
               <div class="p-4 text-center text-gray-500 text-xs">No orders recorded yet.</div>
             ` : recentOrders.map(o => {
               const invNo = o.invoice_number || o.id;
-              const dateStr = o.sale_date || '';
+              const dateStr = o.sale_date || o.date || (o.created_at ? o.created_at.split("T")[0] : "");
               let pMethod = 'CASH';
               if (o.payments && o.payments.length > 0) pMethod = o.payments[0].payment_method;
+              else if (o.paymentMethod || o.payment_method) pMethod = o.paymentMethod || o.payment_method;
               return `
                 <div class="p-3 rounded-xl bg-black/60 border border-gray-800 flex items-center justify-between hover:border-[#D4AF37]/40 transition-all">
                   <div>
@@ -354,7 +359,7 @@ function renderDashboardView() {
                     <span class="text-[10px] text-gray-400">${dateStr}</span>
                   </div>
                   <div class="text-right">
-                    <span class="font-bold text-[#D4AF37] block">${formatCurrency(o.total || 0)}</span>
+                    <span class="font-bold text-[#D4AF37] block">${formatCurrency(o.total || o.grandTotal || 0)}</span>
                     <span class="badge-green text-[9px] py-0 px-1.5">${pMethod}</span>
                   </div>
                 </div>
@@ -374,49 +379,53 @@ function renderDashboardView() {
 async function refreshDashboardData() {
   _dashboardLoaded = false;
   await fetchDashboardBackend();
-  renderView('dashboard');
+  renderCurrentApp();
 }
 
 // Chart Initializer Hook
 function initDashboardCharts() {
-  const ctx = document.getElementById('dashboard-sales-chart');
-  if (!ctx) return;
+  try {
+    const ctx = document.getElementById('dashboard-sales-chart');
+    if (!ctx || typeof Chart === 'undefined') return;
 
-  const trend = _dashboardSalesTrend || [];
-  const labels = trend.map(t => t.trend_date || t.date || 'Day');
-  const data = trend.map(t => parseFloat(t.net_sales || t.sales || 0));
+    const trend = _dashboardSalesTrend || [];
+    const labels = trend.map(t => t.trend_date || t.date || 'Day');
+    const data = trend.map(t => parseFloat(t.net_sales || t.sales || 0));
 
-  if (window.dashboardChartInstance) {
-    window.dashboardChartInstance.destroy();
-  }
-
-  window.dashboardChartInstance = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: labels.length > 0 ? labels : ['No Data'],
-      datasets: [{
-        label: 'Revenue (₹)',
-        data: data.length > 0 ? data : [0],
-        borderColor: '#D4AF37',
-        backgroundColor: 'rgba(212, 175, 55, 0.1)',
-        fill: true,
-        tension: 0.4,
-        pointBackgroundColor: '#F3E5AB',
-        pointBorderColor: '#D4AF37',
-        pointRadius: 5
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false }
-      },
-      scales: {
-        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9CA3AF' } },
-        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9CA3AF' } }
-      }
+    if (window.dashboardChartInstance && typeof window.dashboardChartInstance.destroy === 'function') {
+      window.dashboardChartInstance.destroy();
     }
-  });
+
+    window.dashboardChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels.length > 0 ? labels : ['No Data'],
+        datasets: [{
+          label: 'Revenue (₹)',
+          data: data.length > 0 ? data : [0],
+          borderColor: '#D4AF37',
+          backgroundColor: 'rgba(212, 175, 55, 0.1)',
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: '#F3E5AB',
+          pointBorderColor: '#D4AF37',
+          pointRadius: 5
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9CA3AF' } },
+          y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9CA3AF' } }
+        }
+      }
+    });
+  } catch (chartErr) {
+    console.warn('[Dashboard Chart Notice]', chartErr);
+  }
 }
 
