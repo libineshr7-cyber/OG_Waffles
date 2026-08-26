@@ -123,7 +123,10 @@ function clearCorruptedSession() {
   }
 }
 
+let _isNavigating = false;
+
 function handleHashRouting() {
+  if (_isNavigating) return;
   const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
   const customerRoutes = [
     'customer', 'home', 'website', 'online-order', 'checkout', 'cart',
@@ -137,7 +140,9 @@ function handleHashRouting() {
     return;
   }
   if (hash && (ROLE_PERMISSIONS.OWNER.includes(hash) || ROLE_PERMISSIONS.CASHIER.includes(hash) || hash === 'login')) {
-    navigate(hash);
+    if (currentView !== hash) {
+      navigate(hash);
+    }
   }
 }
 
@@ -260,41 +265,52 @@ function renderAccessDenied(role, attemptedView) {
    NAVIGATION
    ───────────────────────────────────────────────────────────────── */
 function navigate(viewId) {
-  const mobileSidebar = document.getElementById('admin-mobile-sidebar');
-  if (mobileSidebar && mobileSidebar.classList && typeof mobileSidebar.classList.add === 'function') {
-    mobileSidebar.classList.add('hidden');
-  }
+  if (_isNavigating) return;
+  _isNavigating = true;
 
-  const customerRoutes = [
-    "customer", "home", "website", "online-order", "checkout", "cart",
-    "portal", "menu-site", "promotions", "account", "order-online",
-    "public-menu", "track-order", "store", "order", "shop"
-  ];
-  if (customerRoutes.includes(viewId)) {
-    const user = store.getState().currentUser;
-    navigate(user ? defaultViewForRole(user.role) : "login");
-    return;
-  }
+  try {
+    const mobileSidebar = document.getElementById('admin-mobile-sidebar');
+    if (mobileSidebar && mobileSidebar.classList && typeof mobileSidebar.classList.add === 'function') {
+      mobileSidebar.classList.add('hidden');
+    }
 
-  const state = store.getState();
-  const currentUser = state.currentUser;
+    const customerRoutes = [
+      "customer", "home", "website", "online-order", "checkout", "cart",
+      "portal", "menu-site", "promotions", "account", "order-online",
+      "public-menu", "track-order", "store", "order", "shop"
+    ];
+    if (customerRoutes.includes(viewId)) {
+      const user = store.getState().currentUser;
+      _isNavigating = false;
+      navigate(user ? defaultViewForRole(user.role) : "login");
+      return;
+    }
 
-  if (viewId === "login" || !currentUser) {
-    currentView = "login";
+    const state = store.getState();
+    const currentUser = state.currentUser;
+
+    if (viewId === "login" || !currentUser) {
+      currentView = "login";
+      try { history.replaceState(null, '', '#login'); } catch (e) {}
+      renderCurrentApp();
+      return;
+    }
+
+    const role = currentUser.role;
+    if (!canAccess(role, viewId)) {
+      console.warn(`[Navigation] Role ${role} cannot access ${viewId}`);
+      currentView = defaultViewForRole(role);
+      try { history.replaceState(null, '', '#' + currentView); } catch (e) {}
+      renderCurrentApp();
+      return;
+    }
+
+    currentView = viewId;
+    try { history.replaceState(null, '', '#' + viewId); } catch (e) {}
     renderCurrentApp();
-    return;
+  } finally {
+    _isNavigating = false;
   }
-
-  const role = currentUser.role;
-  if (!canAccess(role, viewId)) {
-    console.warn(`[Navigation] Role ${role} cannot access ${viewId}`);
-    currentView = defaultViewForRole(role);
-    renderCurrentApp();
-    return;
-  }
-
-  currentView = viewId;
-  renderCurrentApp();
 }
 
 function switchSection(section) {
