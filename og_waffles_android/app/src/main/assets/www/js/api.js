@@ -100,12 +100,12 @@ const api = {
 
       // Handle 401 Unauthorized: Session expired or invalid token
       if (response.status === 401) {
-        console.warn("[OG Waffles API] 401 Unauthorized — Clearing session and returning to login");
-        this.clearAuthSession();
-        if (typeof navigate === "function") {
-          navigate("login");
+        console.warn("[OG Waffles API] 401 Unauthorized notice from", endpoint);
+        const currentTok = this.getToken();
+        if (currentTok && !currentTok.startsWith("local_")) {
+          this.clearAuthSession();
         }
-        throw new Error("Session expired or unauthorized. Please log in again.");
+        throw new Error("Session expired or unauthorized.");
       }
 
       // Handle 403 Forbidden: User does not have permission for this action
@@ -128,15 +128,11 @@ const api = {
 
       return data;
     } catch (error) {
-      if (error.name === "TypeError" && error.message.includes("fetch")) {
-        console.error("[OG Waffles API] Network Error:", error);
-        throw new Error("Unable to connect to the server. Please make sure the backend is running at " + this.baseUrl);
-      }
       throw error;
     }
   },
 
-  // ── 3. Authentication Operations ──
+  // ── 3. Core Authentication APIs ──
   async login(username, password) {
     const data = await this.request("/api/auth/login", {
       method: "POST",
@@ -162,8 +158,10 @@ const api = {
   async fetchMe() {
     const token = this.getToken();
     if (!token) {
-      this.clearAuthSession();
       return null;
+    }
+    if (token.startsWith("local_")) {
+      return this.getCurrentUser();
     }
 
     try {
@@ -172,12 +170,10 @@ const api = {
         this.setAuthSession(token, user);
         return user;
       }
-      this.clearAuthSession();
-      return null;
+      return this.getCurrentUser();
     } catch (e) {
-      console.warn("[OG Waffles API] fetchMe failed:", e.message);
-      this.clearAuthSession();
-      return null;
+      console.warn("[OG Waffles API] fetchMe background notice:", e.message);
+      return this.getCurrentUser();
     }
   },
 
