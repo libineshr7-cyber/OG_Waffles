@@ -6,7 +6,7 @@ function renderSettingsView() {
   const currentBaseUrl = (typeof api !== 'undefined' && api && api.baseUrl) ? api.baseUrl : (typeof window !== 'undefined' && window.location ? window.location.origin : 'http://localhost:8000');
 
   return `
-    <div class="p-6 space-y-6 max-w-5xl mx-auto">
+    <div class="p-6 space-y-6 animate-fade-in max-w-5xl mx-auto">
       <div class="border-b border-[#D4AF37]/20 pb-4">
         <span class="text-xs text-[#D4AF37] font-semibold tracking-widest uppercase">System Control & Branding</span>
         <h1 class="font-heading text-2xl font-extrabold text-white">System Settings</h1>
@@ -407,51 +407,36 @@ async function executeResetTodayCollections() {
 
   try {
     let deletedCount = 0;
-    if (typeof api !== 'undefined' && api.getToken() && api.sales && api.sales.resetToday && !api.getToken().startsWith('local_')) {
-      try {
-        const res = await api.sales.resetToday();
-        deletedCount = (res && res.deleted_count !== undefined) ? res.deleted_count : 0;
-      } catch (backendErr) {
-        console.warn("[Reset Collections] Backend reset notice (proceeding with local reset):", backendErr.message);
-      }
+    if (typeof api !== 'undefined' && api.getToken() && api.sales && api.sales.resetToday) {
+      const res = await api.sales.resetToday();
+      deletedCount = (res && res.deleted_count !== undefined) ? res.deleted_count : 0;
     }
 
     // Clear local store orders from today
     const todayStr = new Date().toISOString().split("T")[0];
-    let localDeletedCount = 0;
     if (Array.isArray(store.state.orders)) {
-      const beforeCount = store.state.orders.length;
       store.state.orders = store.state.orders.filter(o => {
         const oDate = o.date || (o.created_at ? o.created_at.split("T")[0] : "");
         return oDate !== todayStr;
       });
-      localDeletedCount = beforeCount - store.state.orders.length;
       store.saveState();
     }
 
-    const finalDeletedCount = deletedCount || localDeletedCount;
-
-    // Invalidate cached dashboard, reports & today's sales variables
+    // Invalidate cached today's sales variables
     if (typeof _todaySalesLoaded !== 'undefined') _todaySalesLoaded = false;
     if (typeof _todaySalesSummary !== 'undefined') _todaySalesSummary = null;
     if (typeof _todaySalesList !== 'undefined') _todaySalesList = [];
-    if (typeof _dashboardLoaded !== 'undefined') _dashboardLoaded = false;
-    if (typeof _dashboardMetrics !== 'undefined') _dashboardMetrics = null;
-    if (typeof _dashboardRecentSales !== 'undefined') _dashboardRecentSales = [];
-    if (typeof _reportsLoaded !== 'undefined') _reportsLoaded = false;
 
     if (pinInput) pinInput.value = "";
 
     if (msgEl) {
       msgEl.className = "text-xs p-3 rounded-xl mt-2 font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
-      msgEl.innerHTML = `<i class="fas fa-check-circle mr-1"></i> Success! Today's sales collection has been reset to ₹0.00 (${finalDeletedCount} orders cleared).`;
+      msgEl.innerHTML = `<i class="fas fa-check-circle mr-1"></i> Success! Today's sales collection has been reset to ₹0.00 (${deletedCount} orders cleared).`;
     }
 
-    if (typeof store.addNotification === 'function') {
-      store.addNotification("Collections Reset", `Today's sales collection was reset to ₹0.00 (${finalDeletedCount} orders cleared).`, "success");
-    }
+    store.addNotification("Collections Reset", `Today's sales collection was reset to ₹0.00 (${deletedCount} orders cleared).`, "success");
 
-    alert(`✓ Successfully reset today's collections!\n\nDeleted ${finalDeletedCount} orders. Today's sales total is now ₹0.00.`);
+    alert(`✓ Successfully reset today's collections!\n\nDeleted ${deletedCount} orders. Today's sales total is now ₹0.00.`);
   } catch (err) {
     console.error("[Reset Today Collection Error]", err);
     if (msgEl) {
