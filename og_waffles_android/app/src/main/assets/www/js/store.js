@@ -537,18 +537,22 @@ class Store {
     return { success: true };
   }
 
-  deleteCategory(id) {
+  deleteCategory(id, deleteProducts = false) {
     if (!this.state.categories) return;
     const cat = this.state.categories.find(c => c.id === id);
     this.state.categories = this.state.categories.filter(c => c.id !== id);
-    // Unlink products or mark other
     if (Array.isArray(this.state.menuItems)) {
-      this.state.menuItems.forEach(m => {
-        if (m.categoryId === id || (cat && m.category === cat.name)) {
-          m.categoryId = "other";
-          m.category = "Other";
-        }
-      });
+      if (deleteProducts) {
+        this.state.menuItems = this.state.menuItems.filter(m => m.categoryId !== id && m.category_id !== id && (cat ? m.category !== cat.name : true));
+      } else {
+        this.state.menuItems.forEach(m => {
+          if (m.categoryId === id || m.category_id === id || (cat && m.category === cat.name)) {
+            m.categoryId = "other";
+            m.category_id = "other";
+            m.category = "Other";
+          }
+        });
+      }
     }
     this.addNotification("Category Deleted", `"${cat ? cat.name : id}" removed from categories`, "warning");
     this.saveState();
@@ -602,9 +606,9 @@ class Store {
   }
 
   deleteMenuItem(id) {
-    const item = this.state.menuItems.find(m => m.id === id);
-    this.state.menuItems = this.state.menuItems.filter(m => m.id !== id);
-    this.addNotification("Menu Item Deleted", `"${item ? item.name : id}" removed from menu`, "warning");
+    const item = this.state.menuItems.find(m => m.id === id || (m.id && m.id.toLowerCase() === id.toLowerCase()));
+    this.state.menuItems = this.state.menuItems.filter(m => m.id !== id && (m.id ? m.id.toLowerCase() !== id.toLowerCase() : true));
+    this.addNotification("Product Deleted", `"${item ? item.name : id}" removed from menu`, "warning");
     this.saveState();
   }
 

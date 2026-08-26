@@ -500,7 +500,7 @@ function renderMenuView() {
 
     <!-- DELETE CATEGORY CONFIRMATION MODAL -->
     <div id="category-delete-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 hidden">
-      <div class="w-full max-w-sm glass-card border border-red-500/40 shadow-2xl p-6 space-y-5">
+      <div class="w-full max-w-sm glass-card border border-red-500/40 shadow-2xl p-6 space-y-4">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
             <i class="fas fa-exclamation-triangle text-red-400"></i>
@@ -510,10 +510,16 @@ function renderMenuView() {
             <p class="text-xs text-gray-400 mt-0.5" id="cat-delete-msg">This will delete the category.</p>
           </div>
         </div>
-        <div class="flex gap-3 justify-end pt-2">
+
+        <label class="flex items-center gap-2.5 cursor-pointer text-xs text-gray-300 bg-red-950/30 p-2.5 rounded-lg border border-red-500/20 hover:border-red-500/40 transition-colors">
+          <input type="checkbox" id="cat-delete-products-checkbox" class="accent-red-500 w-4 h-4 rounded cursor-pointer">
+          <span class="font-medium text-red-200">Also delete all products in this category</span>
+        </label>
+
+        <div class="flex gap-3 justify-end pt-2 border-t border-gray-800">
           <button onclick="closeCategoryDeleteModal()" class="btn-outline-dark text-xs py-2 px-5">Cancel</button>
           <button id="cat-delete-confirm-btn" class="text-xs py-2 px-5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl transition-colors">
-            <i class="fas fa-trash mr-1"></i> Delete
+            <i class="fas fa-trash mr-1"></i> Delete Category
           </button>
         </div>
       </div>
@@ -871,20 +877,27 @@ function confirmDeleteCategory(catId, catName) {
   const modal = document.getElementById("category-delete-modal");
   const msg   = document.getElementById("cat-delete-msg");
   const btn   = document.getElementById("cat-delete-confirm-btn");
+  const checkbox = document.getElementById("cat-delete-products-checkbox");
+  if (checkbox) checkbox.checked = false;
 
-  if (msg) msg.textContent = `Are you sure you want to delete category "${catName}"? Products in this category will be unassigned.`;
+  if (msg) msg.textContent = `Are you sure you want to delete category "${catName}"?`;
 
   btn.onclick = async function() {
-    try {
-      await api.categories.delete(catId);
-      store.addNotification("Category Deleted", `"${catName}" removed from categories`, "warning");
-      closeCategoryDeleteModal();
-      if (menuFilterCategory === catId) menuFilterCategory = "All";
-      await store.loadMasterData();
-      renderView("menu");
-    } catch (err) {
-      console.error("[MenuView] Delete Category Error:", err);
-      alert(err.message || "Failed to delete category.");
+    const deleteProducts = checkbox ? checkbox.checked : false;
+
+    // 1. Instantly delete from local store & reactive state
+    store.deleteCategory(catId, deleteProducts);
+    closeCategoryDeleteModal();
+    if (menuFilterCategory === catId) menuFilterCategory = "All";
+    renderView("menu");
+
+    // 2. Sync deletion with backend database asynchronously
+    if (typeof api !== "undefined") {
+      try {
+        await api.categories.delete(catId);
+      } catch (err) {
+        console.warn("[MenuView] Backend category delete notice:", err.message);
+      }
     }
   };
 
@@ -1219,15 +1232,18 @@ function confirmDeleteMenuItem(id, name) {
   if (msg) msg.textContent = `Delete "${name}"? This action cannot be undone.`;
 
   btn.onclick = async function() {
-    try {
-      await api.products.delete(id);
-      store.addNotification("Menu Item Deleted", `"${name}" removed from menu`, "warning");
-      closeDeleteModal();
-      await store.loadMasterData();
-      renderView("menu");
-    } catch (err) {
-      console.error("[MenuView] Delete Product Error:", err);
-      alert(err.message || "Failed to delete product.");
+    // 1. Instantly delete from local store & reactive state
+    store.deleteMenuItem(id);
+    closeDeleteModal();
+    renderView("menu");
+
+    // 2. Sync deletion with backend database asynchronously
+    if (typeof api !== "undefined") {
+      try {
+        await api.products.delete(id);
+      } catch (err) {
+        console.warn("[MenuView] Backend product delete notice:", err.message);
+      }
     }
   };
 
@@ -1243,14 +1259,18 @@ async function toggleMenuItemAvailability(id) {
   if (!item) return;
   const newAvail = !(item.available !== false);
 
-  try {
-    await api.products.update(id, { available: newAvail, active: newAvail });
-    store.addNotification("Item Status Changed", `"${item.name}" is now ${newAvail ? 'Available' : 'Unavailable'}`, "info");
-    await store.loadMasterData();
-    renderView("menu");
-  } catch (err) {
-    console.error("[MenuView] Toggle Product Availability Error:", err);
-    alert(err.message || "Failed to update item availability.");
+  item.available = newAvail;
+  item.active = newAvail;
+  store.saveMenuItem(item);
+  store.addNotification("Item Status Changed", `"${item.name}" is now ${newAvail ? 'Available' : 'Unavailable'}`, "info");
+  renderView("menu");
+
+  if (typeof api !== "undefined") {
+    try {
+      await api.products.update(id, { available: newAvail, active: newAvail });
+    } catch (err) {
+      console.warn("[MenuView] Backend toggle availability notice:", err.message);
+    }
   }
 }
 
