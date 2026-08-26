@@ -84,24 +84,19 @@ function renderPosView() {
       <div class="flex-1 flex flex-col p-4 space-y-4 overflow-y-auto border-r border-[#D4AF37]/20">
         <!-- Search Bar Header -->
         <div class="flex items-center justify-between gap-3">
-          <div class="flex items-center gap-2 flex-1 max-w-lg">
-            <button onclick="navigate('dashboard')" class="btn-outline-dark text-xs py-2 px-3 flex items-center gap-1.5 whitespace-nowrap" title="Return to Live Dashboard">
-              <i class="fas fa-arrow-left text-[#D4AF37]"></i> <span class="hidden sm:inline">Dashboard</span>
-            </button>
-            <div class="relative flex-1">
-              <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-[#D4AF37] text-xs"></i>
-              <input type="text" value="${posSearchQuery}" oninput="handlePosSearch(this.value)" placeholder="Search any product across all categories..." class="input-gold pl-9 py-2 text-xs w-full">
-              ${posSearchQuery ? `
-                <button onclick="clearPosSearch()" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs">
-                  <i class="fas fa-times"></i>
-                </button>
-              ` : ''}
-            </div>
+          <div class="relative w-full max-w-md">
+            <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-[#D4AF37] text-xs"></i>
+            <input type="text" value="${posSearchQuery}" oninput="handlePosSearch(this.value)" placeholder="Search any product across all categories..." class="input-gold pl-9 py-2 text-xs w-full">
+            ${posSearchQuery ? `
+              <button onclick="clearPosSearch()" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs">
+                <i class="fas fa-times"></i>
+              </button>
+            ` : ''}
           </div>
 
           ${selectedPosCategory && !isSearchMode ? `
             <button onclick="backToPosCategories()" class="btn-gold text-xs py-2 px-3.5 flex items-center gap-1.5 whitespace-nowrap">
-              <i class="fas fa-arrow-left"></i> Categories
+              <i class="fas fa-arrow-left"></i> Back to Categories
             </button>
           ` : ''}
         </div>

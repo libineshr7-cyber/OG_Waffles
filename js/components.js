@@ -51,12 +51,11 @@ function renderLogo(size = 'normal', showSub = true) {
 function renderNavBar(activeView) {
   const state = store.getState();
   const currentUser = state.currentUser;
-  const role = currentUser ? currentUser.role : 'CASHIER';
   const shortageAlerts = typeof store.getShortageAlerts === 'function' ? store.getShortageAlerts() : (state.notifications || []);
   const unreadNotifs = shortageAlerts.length;
 
   return `
-    <header class="sticky top-0 z-40 bg-[#0B0B0B]/95 backdrop-blur-md border-b border-[#D4AF37]/25 px-4 py-2.5 flex items-center justify-between shadow-xl">
+    <header class="sticky top-0 z-40 bg-[#0B0B0B]/90 backdrop-blur-md border-b border-[#D4AF37]/20 px-4 py-3 flex items-center justify-between shadow-lg">
       <div class="flex items-center gap-3">
         <!-- Mobile Sidebar Toggle -->
         <button onclick="toggleMobileSidebar()" class="md:hidden p-2 rounded-xl bg-[#141414] border border-[#D4AF37]/30 text-[#D4AF37] hover:border-[#D4AF37]" title="Toggle Menu">
@@ -66,27 +65,9 @@ function renderNavBar(activeView) {
         <div class="cursor-pointer" onclick="navigate('dashboard')">
           ${renderLogo('normal', true)}
         </div>
-
-        <!-- Persistent Quick Navigation Hub (Visible on all tabs) -->
-        ${currentUser ? `
-          <div class="hidden sm:flex items-center gap-1.5 pl-2 border-l border-gray-800">
-            <button onclick="navigate('dashboard')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${activeView === 'dashboard' ? 'bg-gradient-to-r from-[#BF953F] to-[#AA771C] text-black shadow-md' : 'bg-[#141414] text-[#D4AF37] border border-[#D4AF37]/30 hover:bg-[#D4AF37]/15'}">
-              <i class="fas fa-tachometer-alt"></i>
-              <span>Live Dashboard</span>
-            </button>
-            <button onclick="navigate('reports')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${activeView === 'reports' ? 'bg-gradient-to-r from-[#BF953F] to-[#AA771C] text-black shadow-md' : 'bg-[#141414] text-gray-300 border border-gray-800 hover:border-[#D4AF37] hover:text-white'}">
-              <i class="fas fa-chart-bar text-[#D4AF37]"></i>
-              <span>Business Reports</span>
-            </button>
-            <button onclick="navigate('pos')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${activeView === 'pos' ? 'bg-gradient-to-r from-[#BF953F] to-[#AA771C] text-black shadow-md' : 'bg-[#141414] text-gray-300 border border-gray-800 hover:border-[#D4AF37] hover:text-white'}">
-              <i class="fas fa-cash-register text-[#D4AF37]"></i>
-              <span>POS Billing</span>
-            </button>
-          </div>
-        ` : ''}
       </div>
 
-      <div class="flex items-center gap-2.5">
+      <div class="flex items-center gap-3">
         <!-- Global Search Button -->
         <button onclick="toggleGlobalSearch()" class="hidden md:flex items-center gap-2 bg-[#141414] border border-[#D4AF37]/20 px-3 py-1.5 rounded-xl text-xs text-gray-400 hover:border-[#D4AF37] transition-all">
           <i class="fas fa-search text-[#D4AF37]"></i>
