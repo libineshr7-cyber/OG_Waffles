@@ -19,7 +19,8 @@ from app.routes import (
     customers_router,
     expenses_router,
     reports_router,
-    dashboard_router
+    dashboard_router,
+    upload_router
 )
 
 
@@ -67,20 +68,25 @@ app.include_router(customers_router)
 app.include_router(expenses_router)
 app.include_router(reports_router)
 app.include_router(dashboard_router)
+app.include_router(upload_router)
 
 
 # ── Frontend Static Files Mounting ──
-backend_dir = Path(__file__).resolve().parent.parent
-frontend_dir = backend_dir.parent
-if not (frontend_dir / "index.html").exists():
-    frontend_dir = backend_dir.parent.parent / "og_waffles_pos_new"
+repo_root = Path(__file__).resolve().parent.parent
+frontend_dir = repo_root / "og_waffles_pos_new"
+if not frontend_dir.exists():
+    frontend_dir = repo_root
+
+assets_dir = repo_root / "assets"
+if (frontend_dir / "assets").exists():
+    assets_dir = frontend_dir / "assets"
 
 if (frontend_dir / "css").exists():
     app.mount("/css", StaticFiles(directory=str(frontend_dir / "css")), name="css")
 if (frontend_dir / "js").exists():
     app.mount("/js", StaticFiles(directory=str(frontend_dir / "js")), name="js")
-if (frontend_dir / "assets").exists():
-    app.mount("/assets", StaticFiles(directory=str(frontend_dir / "assets")), name="assets")
+if assets_dir.exists():
+    app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
 
 
 @app.get("/app", tags=["Frontend"])

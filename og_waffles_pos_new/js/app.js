@@ -426,7 +426,8 @@ function handleGlobalSearch(query) {
 }
 
 function renderView(view) {
-  navigate(view);
+  if (view) currentView = view;
+  renderCurrentApp();
 }
 
 document.addEventListener("DOMContentLoaded", initApp);

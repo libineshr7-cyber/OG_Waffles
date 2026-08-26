@@ -555,7 +555,10 @@ function renderPosProductCard(item) {
     : 'glass-card p-3 flex flex-col justify-between cursor-not-allowed opacity-50 transition-all border border-gray-800/50';
   const hoverScale = isAvail ? 'group-hover:scale-110' : '';
   const titleClass = isAvail ? 'group-hover:text-[#D4AF37]' : 'text-gray-500';
-  const prodImg = item.image_url || item.image || '';
+  let prodImg = (item.image_url || item.image || '').trim();
+  if (prodImg.startsWith('/assets/')) {
+    prodImg = prodImg.replace(/^\/+/, '');
+  }
   const imgHtml = prodImg
     ? `<img src="${prodImg}" alt="${item.name}" class="w-full h-full object-cover ${hoverScale} transition-transform duration-300" onerror="this.style.display='none'">`
     : '';

@@ -25,12 +25,7 @@ class Store {
         if (isValid) {
           this.state = parsed;
 
-          // ── Forward-migration: update to official new menu & categories ──
-          const hasOldDemoItems = this.state.menuItems.some(m =>
-            m.id && (m.id.startsWith("MENU-") || m.name.includes("Belgian Gold") || m.name.includes("Royal Golden") || m.name.includes("Truffle Gold") || m.name.includes("Velvet Caramel"))
-          );
-
-          if (!this.state.menuVersion || this.state.menuVersion < 4 || hasOldDemoItems) {
+          if (!this.state.menuVersion || this.state.menuVersion < 4) {
             this.state.menuVersion = 4;
             this.saveState();
           }
@@ -70,7 +65,11 @@ class Store {
   }
 
   saveState() {
-    localStorage.setItem("OG_WAFFLES_POS_STORE_V2", JSON.stringify(this.state));
+    try {
+      localStorage.setItem("OG_WAFFLES_POS_STORE_V2", JSON.stringify(this.state));
+    } catch (e) {
+      console.warn("[OG Waffles Store] LocalStorage save warning:", e);
+    }
     this.notify();
   }
 
@@ -485,10 +484,11 @@ class Store {
   }
 
   // --- MENU & CATEGORY MANAGEMENT ---
-  saveCategory({ id, name, icon, image, active }) {
+  saveCategory({ id, name, icon, image, image_url, active }) {
     if (!this.state.categories) this.state.categories = [];
     const catName = (name || '').trim();
     if (!catName) return { success: false, message: "Category name is required" };
+    const img = image_url !== undefined ? image_url : (image !== undefined ? image : "");
 
     if (id) {
       const idx = this.state.categories.findIndex(c => c.id === id);
@@ -498,7 +498,8 @@ class Store {
           ...this.state.categories[idx],
           name: catName,
           icon: icon || this.state.categories[idx].icon || "fa-utensils",
-          image: image !== undefined ? image : (this.state.categories[idx].image || ""),
+          image: img !== undefined ? img : (this.state.categories[idx].image || ""),
+          image_url: img !== undefined ? img : (this.state.categories[idx].image_url || this.state.categories[idx].image || ""),
           active: active !== undefined ? active : (this.state.categories[idx].active !== false)
         };
         // Also update products with this category
@@ -515,7 +516,8 @@ class Store {
           id,
           name: catName,
           icon: icon || "fa-utensils",
-          image: image || "",
+          image: img || "",
+          image_url: img || "",
           active: active !== undefined ? active : true
         });
       }
@@ -525,7 +527,8 @@ class Store {
         id: newId,
         name: catName,
         icon: icon || "fa-utensils",
-        image: image || "",
+        image: img || "",
+        image_url: img || "",
         active: active !== undefined ? active : true
       });
     }
@@ -564,26 +567,37 @@ class Store {
   saveMenuItem(item) {
     // Ensure categoryId and category are in sync
     if (this.state.categories && this.state.categories.length > 0) {
-      if (item.categoryId) {
-        const foundCat = this.state.categories.find(c => c.id === item.categoryId);
+      if (item.categoryId || item.category_id) {
+        const cId = item.categoryId || item.category_id;
+        const foundCat = this.state.categories.find(c => c.id === cId);
         if (foundCat) item.category = foundCat.name;
       } else if (item.category) {
         const foundCat = this.state.categories.find(c => c.name.toLowerCase() === item.category.toLowerCase());
-        if (foundCat) item.categoryId = foundCat.id;
+        if (foundCat) {
+          item.categoryId = foundCat.id;
+          item.category_id = foundCat.id;
+        }
       }
     }
 
+    const img = item.image_url !== undefined ? item.image_url : (item.image !== undefined ? item.image : "");
+    item.image = img;
+    item.image_url = img;
     item.active = item.available !== false;
+    item._localModified = true;
+    item._localModifiedAt = Date.now();
 
     if (item.id) {
-      const idx = this.state.menuItems.findIndex(m => m.id === item.id);
-      if (idx !== -1) this.state.menuItems[idx] = item;
-      else { item.id = `MENU-${Date.now()}`; this.state.menuItems.unshift(item); }
+      const idx = this.state.menuItems.findIndex(m => m.id === item.id || (m.id && m.id.toLowerCase() === item.id.toLowerCase()));
+      if (idx !== -1) {
+        this.state.menuItems[idx] = { ...this.state.menuItems[idx], ...item };
+      } else {
+        this.state.menuItems.unshift(item);
+      }
     } else {
       item.id = `MENU-${Date.now()}`;
       this.state.menuItems.unshift(item);
     }
-    this.addNotification("Menu Updated", `"${item.name}" saved successfully`, "success");
     this.saveState();
   }
 
@@ -723,7 +737,8 @@ class Store {
       if (Array.isArray(custs)) this.syncCustomers(custs);
 
       // Owner-only master data (Suppliers)
-      if (isOwner) {
+      const isOwnerRole = (this.state.currentUser && this.state.currentUser.role === 'OWNER') || (typeof api !== 'undefined' && api.getRole() === 'OWNER');
+      if (isOwnerRole) {
         const sups = await api.suppliers.list().catch(err => { console.warn("[Store] suppliers fetch error:", err); return null; });
         if (Array.isArray(sups)) this.syncSuppliers(sups);
       }
@@ -812,41 +827,76 @@ class Store {
   }
 
   syncCategories(cats) {
-    this.state.categories = cats.map(c => ({
-      id: c.id,
-      name: c.name,
-      icon: c.icon || "fa-utensils",
-      image: c.image_url || c.image || "",
-      image_url: c.image_url || c.image || "",
-      display_order: c.display_order || 0,
-      active: c.active !== false
-    }));
+    const localCats = Array.isArray(this.state.categories) ? this.state.categories : [];
+    this.state.categories = cats.map(c => {
+      const existingLocal = localCats.find(lc => lc.id === c.id || (lc.id && lc.id.toLowerCase() === (c.id || '').toLowerCase()));
+      let img = c.image_url || c.image || "";
+      if (existingLocal && existingLocal._localModified && (existingLocal.image_url !== undefined || existingLocal.image !== undefined)) {
+        img = existingLocal.image_url || existingLocal.image || img;
+      } else if (!img && existingLocal && (existingLocal.image_url || existingLocal.image)) {
+        img = existingLocal.image_url || existingLocal.image;
+      }
+      return {
+        id: c.id,
+        name: (existingLocal && existingLocal._localModified) ? existingLocal.name : c.name,
+        icon: (existingLocal && existingLocal._localModified) ? existingLocal.icon : (c.icon || "fa-utensils"),
+        image: img,
+        image_url: img,
+        display_order: c.display_order || 0,
+        active: (existingLocal && existingLocal._localModified) ? existingLocal.active : (c.active !== false),
+        _localModified: existingLocal ? existingLocal._localModified : false
+      };
+    });
+    localCats.forEach(loc => {
+      if (loc && loc.id && !this.state.categories.some(c => c.id === loc.id || (c.id && c.id.toLowerCase() === loc.id.toLowerCase()))) {
+        this.state.categories.push(loc);
+      }
+    });
   }
 
   syncProducts(prods) {
     const cats = this.state.categories || [];
+    const localItems = Array.isArray(this.state.menuItems) ? this.state.menuItems : [];
+
     this.state.menuItems = prods.map(p => {
       const matchedCat = cats.find(c => c.id === p.category_id);
+      const existingLocal = localItems.find(m => m.id === p.id || (m.id && m.id.toLowerCase() === (p.id || '').toLowerCase()));
+
+      let img = p.image_url || p.image || "";
+      if (existingLocal && existingLocal._localModified && (existingLocal.image_url !== undefined || existingLocal.image !== undefined)) {
+        img = existingLocal.image_url || existingLocal.image || img;
+      } else if (!img && existingLocal && (existingLocal.image_url || existingLocal.image)) {
+        img = existingLocal.image_url || existingLocal.image;
+      }
+
       return {
         id: p.id,
         categoryId: p.category_id,
         category_id: p.category_id,
         category: matchedCat ? matchedCat.name : (p.category || "General"),
-        name: p.name,
-        price: parseFloat(p.price) || 0,
+        name: (existingLocal && existingLocal._localModified) ? existingLocal.name : p.name,
+        price: (existingLocal && existingLocal._localModified) ? existingLocal.price : (parseFloat(p.price) || 0),
         sellingUnit: p.selling_unit || "piece",
         selling_unit: p.selling_unit || "piece",
         unit: p.selling_unit || "piece",
-        description: p.description || "",
-        image: p.image_url || p.image || "",
-        image_url: p.image_url || p.image || "",
-        available: p.available !== false,
-        active: p.active !== false,
+        description: (existingLocal && existingLocal._localModified) ? existingLocal.description : (p.description || ""),
+        image: img,
+        image_url: img,
+        available: (existingLocal && existingLocal._localModified) ? existingLocal.available : (p.available !== false),
+        active: (existingLocal && existingLocal._localModified) ? existingLocal.active : (p.active !== false),
         inventoryProductId: p.inventory_product_id || null,
         inventory_product_id: p.inventory_product_id || null,
         deductQty: parseFloat(p.deduction_qty || 0),
-        deduction_qty: parseFloat(p.deduction_qty || 0)
+        deduction_qty: parseFloat(p.deduction_qty || 0),
+        _localModified: existingLocal ? existingLocal._localModified : false,
+        _localModifiedAt: existingLocal ? existingLocal._localModifiedAt : null
       };
+    });
+
+    localItems.forEach(loc => {
+      if (loc && loc.id && !this.state.menuItems.some(m => m.id === loc.id || (m.id && m.id.toLowerCase() === loc.id.toLowerCase()))) {
+        this.state.menuItems.push(loc);
+      }
     });
   }
 

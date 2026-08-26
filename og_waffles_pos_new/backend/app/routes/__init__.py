@@ -1,4 +1,4 @@
-﻿from app.routes.health import router as health_router
+from app.routes.health import router as health_router
 from app.routes.auth import router as auth_router
 from app.routes.categories import router as categories_router
 from app.routes.products import router as products_router
@@ -10,6 +10,7 @@ from app.routes.customers import router as customers_router
 from app.routes.expenses import router as expenses_router
 from app.routes.reports import router as reports_router
 from app.routes.dashboard import router as dashboard_router
+from app.routes.upload import router as upload_router
 
 __all__ = [
     "health_router",
@@ -23,5 +24,6 @@ __all__ = [
     "customers_router",
     "expenses_router",
     "reports_router",
-    "dashboard_router"
+    "dashboard_router",
+    "upload_router"
 ]

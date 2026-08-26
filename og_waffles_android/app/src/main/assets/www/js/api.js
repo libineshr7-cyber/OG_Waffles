@@ -254,6 +254,34 @@ const api = {
     }
   },
 
+  // ── Image Upload API ──
+  async uploadImage(file) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const token = this.getToken();
+    const headers = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const url = `${this.baseUrl}/api/upload`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: formData
+    });
+
+    if (!res.ok) {
+      let errDetail = "Upload failed";
+      try {
+        const errJson = await res.json();
+        errDetail = errJson.detail || errDetail;
+      } catch (e) {}
+      throw new Error(errDetail);
+    }
+
+    return await res.json();
+  },
+
   // ── 6. Inventory API ──
   inventory: {
     async list(params = {}) {

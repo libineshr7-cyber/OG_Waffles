@@ -10,6 +10,78 @@ let menuSortBy           = "name";
 let menuImagePreviewData = "";
 let categoryImagePreviewData = "";
 
+const FOOD_PRESET_IMAGES = [
+  { name: "Belgian Waffle", url: "https://images.unsplash.com/photo-1562376552-0d160a2f238d?auto=format&fit=crop&w=600&q=80" },
+  { name: "Choco Waffle", url: "https://images.unsplash.com/photo-1598214886806-c87b84b7078b?auto=format&fit=crop&w=600&q=80" },
+  { name: "Berry Waffle", url: "https://images.unsplash.com/photo-1504113888839-1c8eb50233d3?auto=format&fit=crop&w=600&q=80" },
+  { name: "Nutella Waffle", url: "https://images.unsplash.com/photo-1568051243851-f9b136146e97?auto=format&fit=crop&w=600&q=80" },
+  { name: "Waffle Stack", url: "https://images.unsplash.com/photo-1579306194872-6463b7ab1237?auto=format&fit=crop&w=600&q=80" },
+  { name: "Crispy Leg", url: "https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?auto=format&fit=crop&w=600&q=80" },
+  { name: "Chicken Wings", url: "https://images.unsplash.com/photo-1567620832903-9fc6debc209f?auto=format&fit=crop&w=600&q=80" },
+  { name: "Popcorn Chk", url: "https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=600&q=80" },
+  { name: "Chicken Strips", url: "https://images.unsplash.com/photo-1587740896339-96a76170508d?auto=format&fit=crop&w=600&q=80" },
+  { name: "French Fries", url: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=600&q=80" },
+  { name: "Combo Meal", url: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=600&q=80" },
+  { name: "Steamed Momos", url: "https://images.unsplash.com/photo-1625220194771-7ebdea0b70b9?auto=format&fit=crop&w=600&q=80" },
+  { name: "Shawarma Roll", url: "https://images.unsplash.com/photo-1561651823-34feb02250e4?auto=format&fit=crop&w=600&q=80" },
+  { name: "Shawarma Plate", url: "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?auto=format&fit=crop&w=600&q=80" },
+  { name: "Milkshake", url: "https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=600&q=80" },
+  { name: "Choco Shake", url: "https://images.unsplash.com/photo-1577805947697-89e18249d767?auto=format&fit=crop&w=600&q=80" },
+  { name: "Mojito Drink", url: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=600&q=80" },
+  { name: "Cold Coffee", url: "https://images.unsplash.com/photo-1517701604599-bb29b565090c?auto=format&fit=crop&w=600&q=80" },
+  { name: "Ice Cream", url: "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=600&q=80" },
+  { name: "Cold Drink Can", url: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=600&q=80" }
+];
+
+/* ─────────────────────────────────────────────────────────────────────
+   IMAGE COMPRESSION UTILITY (Canvas-based Web Optimizer)
+   ───────────────────────────────────────────────────────────────────── */
+function compressImageFile(file, maxWidth = 350, maxHeight = 350, quality = 0.65) {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      resolve("");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Failed to read image file."));
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Failed to process image format."));
+      img.onload = () => {
+        let width = img.width || 400;
+        let height = img.height || 400;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, width);
+        canvas.height = Math.max(1, height);
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        try {
+          const compressed = canvas.toDataURL("image/jpeg", quality);
+          resolve(compressed);
+        } catch (err) {
+          resolve(e.target.result);
+        }
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 /* ─────────────────────────────────────────────────────────────────────
    RENDER
    ───────────────────────────────────────────────────────────────────── */
@@ -253,9 +325,30 @@ function renderMenuView() {
             </div>
           </div>
 
-          <div>
-            <label class="block text-gray-300 font-semibold mb-1">Category Image URL (Optional)</label>
-            <input id="cat-image-url" type="text" placeholder="https://..." oninput="handleCategoryImageUrl(this.value)" class="input-gold py-2 text-xs font-mono">
+          <!-- Category Image (Upload Only) -->
+          <div class="space-y-2.5 border border-[#D4AF37]/30 rounded-xl p-3.5 bg-black/50">
+            <div class="flex items-center justify-between">
+              <label class="block text-[#D4AF37] font-bold text-xs flex items-center gap-1.5">
+                <i class="fas fa-image"></i> Category Image
+              </label>
+              <button type="button" onclick="clearCategoryImage()" class="text-[10px] text-red-400 hover:text-red-300 font-medium flex items-center gap-1 transition-colors">
+                <i class="fas fa-trash-alt text-[9px]"></i> Remove
+              </button>
+            </div>
+            <div class="flex gap-3.5 items-center">
+              <div class="w-16 h-16 rounded-xl overflow-hidden border-2 border-[#D4AF37]/40 flex-shrink-0 bg-gray-900 flex items-center justify-center relative shadow">
+                <img id="cat-img-preview" src="" alt="Category Preview" class="w-full h-full object-cover hidden" onload="const st = document.getElementById('cat-img-status'); if(st){ st.innerText='✓ Image ready'; st.className='text-[9px] text-emerald-400 font-bold block mt-1'; }" onerror="this.classList.add('hidden'); document.getElementById('cat-img-placeholder').classList.remove('hidden');">
+                <div id="cat-img-placeholder" class="text-center text-gray-600 text-[10px]">
+                  <i class="fas fa-image text-xl block mb-0.5"></i> No image
+                </div>
+              </div>
+              <div class="flex-1 space-y-1.5">
+                <label class="text-[10px] text-gray-300 font-medium block">Select image from device:</label>
+                <input type="file" id="cat-file-input" accept="image/*" onchange="handleCategoryImageUpload(event)" class="block w-full text-[11px] text-gray-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-[#D4AF37] file:text-black hover:file:bg-[#BF953F] cursor-pointer bg-black/60 rounded border border-gray-800">
+                <span id="cat-img-status" class="text-[9px] text-gray-500 block"></span>
+              </div>
+            </div>
+            <input type="hidden" id="cat-image">
           </div>
 
           <div class="pt-3 flex justify-end gap-2 border-t border-gray-800">
@@ -364,22 +457,31 @@ function renderMenuView() {
             <textarea id="menu-desc" rows="2" placeholder="Short description of this product..." class="input-gold py-2 text-xs resize-none"></textarea>
           </div>
 
-          <!-- ROW 5: Food Image -->
-          <div class="space-y-3 border border-[#D4AF37]/20 rounded-xl p-4 bg-black/30">
-            <label class="block text-[#D4AF37] font-bold mb-1">Product Image</label>
-            <div class="flex gap-4 items-start">
-              <div class="w-24 h-24 rounded-xl overflow-hidden border-2 border-[#D4AF37]/40 flex-shrink-0 bg-gray-900 flex items-center justify-center">
-                <img id="menu-img-preview" src="" alt="Preview" class="w-full h-full object-cover hidden" onerror="this.classList.add('hidden'); document.getElementById('menu-img-placeholder').classList.remove('hidden')">
+          <!-- ROW 5: Food Image (Upload Only) -->
+          <div class="space-y-3 border border-[#D4AF37]/30 rounded-xl p-4 bg-black/50">
+            <div class="flex items-center justify-between">
+              <label class="block text-[#D4AF37] font-bold text-xs flex items-center gap-1.5">
+                <i class="fas fa-image"></i> Product Image
+              </label>
+              <button type="button" onclick="clearMenuImage()" class="text-[11px] text-red-400 hover:text-red-300 font-semibold flex items-center gap-1 transition-colors">
+                <i class="fas fa-trash-alt text-[10px]"></i> Remove Image
+              </button>
+            </div>
+            <div class="flex gap-4 items-center">
+              <div class="w-24 h-24 rounded-xl overflow-hidden border-2 border-[#D4AF37]/40 flex-shrink-0 bg-gray-900 flex items-center justify-center relative shadow-lg">
+                <img id="menu-img-preview" src="" alt="Preview" class="w-full h-full object-cover hidden" onload="const st = document.getElementById('menu-img-status'); if(st){ st.innerText='✓ Image loaded and ready'; st.className='text-[10px] text-emerald-400 font-bold block mt-1'; }" onerror="this.classList.add('hidden'); document.getElementById('menu-img-placeholder').classList.remove('hidden');">
                 <div id="menu-img-placeholder" class="text-center text-gray-600 text-xs p-2">
                   <i class="fas fa-image text-2xl block mb-1"></i> No image
                 </div>
               </div>
 
               <div class="flex-1 space-y-2">
-                <input type="file" accept="image/*" onchange="handleMenuImageUpload(event)" class="block w-full text-xs text-gray-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#D4AF37] file:text-black hover:file:bg-[#BF953F] cursor-pointer">
-                <input id="menu-image-url" type="text" placeholder="Or paste image URL (https://...)" oninput="handleMenuImageUrl(this.value)" class="input-gold py-1.5 text-xs font-mono">
+                <label class="text-xs text-gray-300 font-semibold block">Choose Image from Device / Gallery:</label>
+                <input type="file" id="menu-file-input" accept="image/*" onchange="handleMenuImageUpload(event)" class="block w-full text-xs text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#D4AF37] file:text-black hover:file:bg-[#BF953F] cursor-pointer bg-black/60 rounded-lg border border-gray-800 p-1">
+                <span id="menu-img-status" class="text-[10px] text-gray-400 block">Select any JPG, PNG, or WEBP photo</span>
               </div>
             </div>
+
             <input type="hidden" id="menu-image">
           </div>
 
@@ -457,17 +559,22 @@ function renderMenuCard(item, ingredients, categories) {
     </span>`;
   }
 
+  const cleanName = (item.name || '').replace(/"/g, '&quot;');
   const categoryName = item.category || (categories && categories.find(c => c.id === item.categoryId)?.name) || 'General';
+  let imgUrl = (item.image_url || item.image || '').trim();
+  if (imgUrl.startsWith('/assets/')) {
+    imgUrl = imgUrl.replace(/^\/+/, '');
+  }
 
   return `
     <div class="glass-card overflow-hidden flex flex-col group ${item.available === false ? 'opacity-70' : ''}">
       <!-- Image -->
       <div class="relative h-40 overflow-hidden bg-gray-900 flex-shrink-0 flex items-center justify-center">
-        ${item.image
-          ? `<img src="${item.image}" alt="${item.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+        ${imgUrl
+          ? `<img src="${imgUrl}" alt="${cleanName}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+               onerror="this.classList.add('hidden'); if (this.nextElementSibling) this.nextElementSibling.classList.remove('hidden');">`
           : ""}
-        <div class="w-full h-full flex items-center justify-center text-gray-700 text-xs ${item.image ? 'hidden' : 'flex'}">
+        <div class="w-full h-full flex items-center justify-center text-gray-700 text-xs ${imgUrl ? 'hidden' : 'flex'}">
           <i class="fas fa-utensils text-3xl opacity-20"></i>
         </div>
 
@@ -545,6 +652,9 @@ function openCategoryModal(catId = null) {
   const modal = document.getElementById("category-modal");
   categoryImagePreviewData = "";
 
+  const fileInput = document.getElementById("cat-file-input");
+  if (fileInput) fileInput.value = "";
+
   if (catId) {
     const cat = (store.getState().categories || []).find(c => c.id === catId);
     if (!cat) return;
@@ -553,14 +663,35 @@ function openCategoryModal(catId = null) {
     document.getElementById("cat-name").value = cat.name;
     document.getElementById("cat-icon").value = cat.icon || "fa-utensils";
     document.getElementById("cat-active").checked = cat.active !== false;
-    document.getElementById("cat-image-url").value = cat.image_url || cat.image || "";
+
+    const img = cat.image_url || cat.image || "";
+    document.getElementById("cat-image").value = img;
+    categoryImagePreviewData = img;
+    const fi = document.getElementById("cat-file-input");
+    if (fi) fi.value = "";
+    const st = document.getElementById("cat-img-status");
+    if (st) {
+      st.innerText = img ? "✓ Current image loaded" : "";
+      st.className = "text-[9px] text-gray-400 block";
+    }
+    if (img) {
+      setCategoryImagePreview(img);
+    } else {
+      clearCategoryImagePreview();
+    }
   } else {
     document.getElementById("cat-modal-title").innerText = "Add New Category";
     document.getElementById("cat-id").value = "";
     document.getElementById("cat-name").value = "";
     document.getElementById("cat-icon").value = "fa-utensils";
     document.getElementById("cat-active").checked = true;
-    document.getElementById("cat-image-url").value = "";
+    document.getElementById("cat-image").value = "";
+    categoryImagePreviewData = "";
+    const fi = document.getElementById("cat-file-input");
+    if (fi) fi.value = "";
+    const st = document.getElementById("cat-img-status");
+    if (st) { st.innerText = ""; }
+    clearCategoryImagePreview();
   }
   modal.classList.remove("hidden");
 }
@@ -569,33 +700,154 @@ function closeCategoryModal() {
   document.getElementById("category-modal").classList.add("hidden");
 }
 
+async function handleCategoryImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const statusEl = document.getElementById("cat-img-status");
+  if (statusEl) {
+    statusEl.innerText = "⏳ Processing image...";
+    statusEl.className = "text-[9px] text-[#D4AF37] font-semibold block mt-1";
+  }
+
+  // 1. Immediately compress & store locally
+  try {
+    const compressed = await compressImageFile(file, 350, 350, 0.65);
+    categoryImagePreviewData = compressed;
+    const catImgHidden = document.getElementById("cat-image");
+    if (catImgHidden) catImgHidden.value = compressed;
+    setCategoryImagePreview(compressed);
+    if (statusEl) {
+      statusEl.innerText = "✓ Image ready";
+      statusEl.className = "text-[9px] text-emerald-400 font-bold block mt-1";
+    }
+  } catch (err) {
+    console.error("[MenuView] Category image process error:", err);
+  }
+
+  // 2. Upload to server in background
+  if (typeof api !== "undefined") {
+    try {
+      const res = await api.uploadImage(file);
+      if (res && (res.url || res.filename)) {
+        const finalUrl = res.url || `assets/uploads/${res.filename}`;
+        categoryImagePreviewData = finalUrl;
+        const catImgHidden = document.getElementById("cat-image");
+        if (catImgHidden) catImgHidden.value = finalUrl;
+        setCategoryImagePreview(finalUrl);
+        if (statusEl) {
+          statusEl.innerText = "✓ Uploaded to server";
+          statusEl.className = "text-[9px] text-emerald-400 font-bold block mt-1";
+        }
+      }
+    } catch (uploadErr) {
+      console.warn("[MenuView] Category server upload fallback:", uploadErr.message);
+    }
+  }
+}
+
+function clearCategoryImage() {
+  categoryImagePreviewData = "";
+  const hidden = document.getElementById("cat-image");
+  if (hidden) hidden.value = "";
+  const fi = document.getElementById("cat-file-input");
+  if (fi) fi.value = "";
+  const st = document.getElementById("cat-img-status");
+  if (st) {
+    st.innerText = "Image removed";
+    st.className = "text-[9px] text-red-400 block mt-1";
+  }
+  clearCategoryImagePreview();
+}
+
+function setCategoryImagePreview(src) {
+  const img = document.getElementById("cat-img-preview");
+  const ph = document.getElementById("cat-img-placeholder");
+  if (!img) return;
+  if (!src) {
+    clearCategoryImagePreview();
+    return;
+  }
+  img.src = src;
+  img.classList.remove("hidden");
+  if (ph) ph.classList.add("hidden");
+}
+
+function clearCategoryImagePreview() {
+  const img = document.getElementById("cat-img-preview");
+  const ph = document.getElementById("cat-img-placeholder");
+  if (img) {
+    img.src = "";
+    img.classList.add("hidden");
+  }
+  if (ph) ph.classList.remove("hidden");
+}
+
 async function handleCategorySave(e) {
   e.preventDefault();
-  const id = document.getElementById("cat-id").value;
-  const name = document.getElementById("cat-name").value.trim();
-  const icon = document.getElementById("cat-icon").value;
+  const id     = document.getElementById("cat-id").value;
+  const name   = document.getElementById("cat-name").value.trim();
+  const icon   = document.getElementById("cat-icon").value;
   const active = document.getElementById("cat-active").checked;
-  const image = document.getElementById("cat-image-url").value.trim();
+
+  const fileInput = document.getElementById("cat-file-input");
+  let image = (categoryImagePreviewData || "").trim();
+  if (fileInput && fileInput.files && fileInput.files[0]) {
+    try {
+      image = await compressImageFile(fileInput.files[0], 350, 350, 0.65);
+      categoryImagePreviewData = image;
+      const catImgHidden = document.getElementById("cat-image");
+      if (catImgHidden) catImgHidden.value = image;
+    } catch (err) {
+      console.warn("[MenuView] Direct category compress notice:", err);
+    }
+  }
+  if (!image) {
+    const catHidden = (document.getElementById("cat-image")?.value || "").trim();
+    image = catHidden || "";
+  }
 
   if (!name) {
     alert("Please enter a Category Name.");
     return;
   }
 
-  try {
-    if (id) {
-      await api.categories.update(id, { name, icon, active, image_url: image });
-      store.addNotification("Category Updated", `Category "${name}" updated successfully`, "success");
-    } else {
-      await api.categories.create({ name, icon, active, image_url: image });
-      store.addNotification("Category Created", `Category "${name}" created successfully`, "success");
+  const localCat = {
+    id: id || `cat-${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}`,
+    name,
+    icon,
+    active,
+    image: image,
+    image_url: image
+  };
+
+  // 1. Instantly save in local store & reactive state
+  store.saveCategory(localCat);
+  store.addNotification(id ? "Category Updated" : "Category Created", `Category "${name}" saved successfully`, "success");
+  closeCategoryModal();
+  renderView("menu");
+
+  // 2. Sync with backend database
+  if (typeof api !== "undefined") {
+    try {
+      let backendCat = null;
+      if (id) {
+        backendCat = await api.categories.update(id, { name, icon, active, image_url: image });
+      } else {
+        backendCat = await api.categories.create({ name, icon, active, image_url: image });
+      }
+      if (backendCat && backendCat.id) {
+        localCat.id = backendCat.id;
+        localCat.image = backendCat.image_url || localCat.image;
+        localCat.image_url = backendCat.image_url || localCat.image_url;
+        localCat._localModified = false;
+        store.saveCategory(localCat);
+        console.log("[MenuView] Category synced to backend database:", localCat.id, localCat.name);
+      }
+      renderView("menu");
+    } catch (err) {
+      console.warn("[MenuView] Backend save category notice:", err.message);
     }
-    closeCategoryModal();
-    await store.loadMasterData();
-    renderView("menu");
-  } catch (err) {
-    console.error("[MenuView] Save Category Error:", err);
-    alert(err.message || "Failed to save category.");
   }
 }
 
@@ -689,6 +941,9 @@ function openMenuModal(id = null, defaultCatId = "") {
   menuImagePreviewData = "";
   const categories = store.getState().categories || [];
 
+  const fileInput = document.getElementById("menu-file-input");
+  if (fileInput) fileInput.value = "";
+
   if (id) {
     const item = store.getState().menuItems.find(m => m.id === id);
     if (!item) return;
@@ -699,8 +954,10 @@ function openMenuModal(id = null, defaultCatId = "") {
     document.getElementById("menu-price").value     = item.price;
     document.getElementById("menu-desc").value      = item.description || "";
     document.getElementById("menu-available").checked = item.available !== false;
-    document.getElementById("menu-image").value     = item.image_url || item.image || "";
-    document.getElementById("menu-image-url").value = item.image_url || item.image || "";
+
+    const imgUrl = item.image_url || item.image || "";
+    document.getElementById("menu-image").value = imgUrl;
+    menuImagePreviewData = imgUrl;
 
     const catSel = document.getElementById("menu-category-select");
     if (catSel) {
@@ -720,10 +977,16 @@ function openMenuModal(id = null, defaultCatId = "") {
     if (deductInput) deductInput.value = deductQty;
     handleMenuInventoryProductChange(linkedId);
 
-    const imgUrl = item.image_url || item.image;
+    const st = document.getElementById("menu-img-status");
+    if (st) {
+      st.innerText = imgUrl ? "✓ Current image loaded" : "Select any JPG, PNG, or WEBP photo";
+      st.className = "text-[10px] text-gray-400 block";
+    }
+
     if (imgUrl) {
-      menuImagePreviewData = imgUrl;
       setMenuImagePreview(imgUrl);
+    } else {
+      clearMenuImagePreview();
     }
   } else {
     document.getElementById("menu-modal-title").innerText = "Add New Product";
@@ -733,9 +996,15 @@ function openMenuModal(id = null, defaultCatId = "") {
     document.getElementById("menu-desc").value      = "";
     document.getElementById("menu-available").checked = true;
     document.getElementById("menu-image").value     = "";
-    document.getElementById("menu-image-url").value = "";
+    menuImagePreviewData = "";
     document.getElementById("menu-inventory-product").value = "";
     document.getElementById("menu-deduct-qty").value = "1";
+
+    const st = document.getElementById("menu-img-status");
+    if (st) {
+      st.innerText = "Select any JPG, PNG, or WEBP photo";
+      st.className = "text-[10px] text-gray-400 block";
+    }
 
     const catSel = document.getElementById("menu-category-select");
     if (catSel) {
@@ -757,29 +1026,74 @@ function closeMenuModal() {
   document.getElementById("menu-modal").classList.add("hidden");
 }
 
-function handleMenuImageUpload(event) {
+async function handleMenuImageUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    menuImagePreviewData = e.target.result;
-    document.getElementById("menu-image").value     = menuImagePreviewData;
-    document.getElementById("menu-image-url").value = "";
-    setMenuImagePreview(menuImagePreviewData);
-  };
-  reader.readAsDataURL(file);
+
+  const statusEl = document.getElementById("menu-img-status");
+  if (statusEl) {
+    statusEl.innerText = "⏳ Processing image...";
+    statusEl.className = "text-[10px] text-[#D4AF37] font-semibold block mt-1";
+  }
+
+  // 1. Immediately compress & store locally
+  try {
+    const compressed = await compressImageFile(file, 350, 350, 0.65);
+    menuImagePreviewData = compressed;
+    const menuImgHidden = document.getElementById("menu-image");
+    if (menuImgHidden) menuImgHidden.value = compressed;
+    setMenuImagePreview(compressed);
+    if (statusEl) {
+      statusEl.innerText = "✓ Image ready to save";
+      statusEl.className = "text-[10px] text-emerald-400 font-bold block mt-1";
+    }
+  } catch (err) {
+    console.error("[MenuView] Product image process error:", err);
+  }
+
+  // 2. Upload to server in background
+  if (typeof api !== "undefined") {
+    try {
+      const res = await api.uploadImage(file);
+      if (res && (res.url || res.filename)) {
+        const finalUrl = res.url || `assets/uploads/${res.filename}`;
+        menuImagePreviewData = finalUrl;
+        const menuImgHidden = document.getElementById("menu-image");
+        if (menuImgHidden) menuImgHidden.value = finalUrl;
+        setMenuImagePreview(finalUrl);
+        if (statusEl) {
+          statusEl.innerText = "✓ Uploaded to server";
+          statusEl.className = "text-[10px] text-emerald-400 font-bold block mt-1";
+        }
+      }
+    } catch (uploadErr) {
+      console.warn("[MenuView] Server upload fallback to local image:", uploadErr.message);
+    }
+  }
 }
 
-function handleMenuImageUrl(url) {
-  menuImagePreviewData = url;
-  document.getElementById("menu-image").value = url;
-  setMenuImagePreview(url);
+function clearMenuImage() {
+  menuImagePreviewData = "";
+  const hidden = document.getElementById("menu-image");
+  if (hidden) hidden.value = "";
+  const fi = document.getElementById("menu-file-input");
+  if (fi) fi.value = "";
+  const st = document.getElementById("menu-img-status");
+  if (st) {
+    st.innerText = "Image removed";
+    st.className = "text-[10px] text-red-400 block mt-1";
+  }
+  clearMenuImagePreview();
 }
 
 function setMenuImagePreview(src) {
   const img  = document.getElementById("menu-img-preview");
   const ph   = document.getElementById("menu-img-placeholder");
   if (!img) return;
+  if (!src) {
+    clearMenuImagePreview();
+    return;
+  }
   img.src = src;
   img.classList.remove("hidden");
   if (ph) ph.classList.add("hidden");
@@ -788,7 +1102,10 @@ function setMenuImagePreview(src) {
 function clearMenuImagePreview() {
   const img = document.getElementById("menu-img-preview");
   const ph  = document.getElementById("menu-img-placeholder");
-  if (img) { img.src = ""; img.classList.add("hidden"); }
+  if (img) {
+    img.src = "";
+    img.classList.add("hidden");
+  }
   if (ph)  ph.classList.remove("hidden");
 }
 
@@ -800,8 +1117,24 @@ async function handleMenuSave(e) {
   const price       = parseFloat(document.getElementById("menu-price").value);
   const description = document.getElementById("menu-desc").value.trim();
   const available   = document.getElementById("menu-available").checked;
-  const image       = document.getElementById("menu-image").value.trim();
   const categoryId  = document.getElementById("menu-category-select").value;
+
+  const fileInput = document.getElementById("menu-file-input");
+  let image = (menuImagePreviewData || "").trim();
+  if (fileInput && fileInput.files && fileInput.files[0]) {
+    try {
+      image = await compressImageFile(fileInput.files[0], 350, 350, 0.65);
+      menuImagePreviewData = image;
+      const menuImgHidden = document.getElementById("menu-image");
+      if (menuImgHidden) menuImgHidden.value = image;
+    } catch (err) {
+      console.warn("[MenuView] Direct menu file compress notice:", err);
+    }
+  }
+  if (!image) {
+    const hiddenVal = (document.getElementById("menu-image")?.value || "").trim();
+    image = hiddenVal || "";
+  }
 
   if (!name || isNaN(price)) {
     alert("Please fill in Product Name and Price.");
@@ -811,6 +1144,8 @@ async function handleMenuSave(e) {
   const inventoryProductId = document.getElementById("menu-inventory-product").value || null;
   const deductQty = inventoryProductId ? (parseFloat(document.getElementById("menu-deduct-qty").value) || 1.0) : 0.0;
   const sellingUnit = inventoryProductId ? (store.getState().ingredients.find(i => i.id === inventoryProductId)?.baseUnit || 'piece') : 'piece';
+  const categoryObj = (store.getState().categories || []).find(c => c.id === categoryId);
+  const categoryName = categoryObj ? categoryObj.name : "General";
 
   const payload = {
     category_id: categoryId,
@@ -825,20 +1160,54 @@ async function handleMenuSave(e) {
     deduction_qty: deductQty
   };
 
-  try {
-    if (id) {
-      await api.products.update(id, payload);
-      store.addNotification("Product Updated", `"${name}" updated successfully`, "success");
-    } else {
-      await api.products.create(payload);
-      store.addNotification("Product Created", `"${name}" created successfully`, "success");
+  const localItem = {
+    id: id || `MENU-${Date.now()}`,
+    categoryId: categoryId,
+    category_id: categoryId,
+    category: categoryName,
+    name,
+    price,
+    sellingUnit: sellingUnit,
+    selling_unit: sellingUnit,
+    unit: sellingUnit,
+    description,
+    image: image,
+    image_url: image,
+    available,
+    active: available,
+    inventoryProductId: inventoryProductId,
+    inventory_product_id: inventoryProductId,
+    deductQty,
+    deduction_qty: deductQty
+  };
+
+  // 1. Instantly save in local store & reactive state
+  store.saveMenuItem(localItem);
+  store.addNotification(id ? "Product Updated" : "Product Created", `"${name}" saved successfully`, "success");
+  closeMenuModal();
+  renderView("menu");
+
+  // 2. Sync with backend database
+  if (typeof api !== "undefined") {
+    try {
+      let backendRes = null;
+      if (id) {
+        backendRes = await api.products.update(id, payload);
+      } else {
+        backendRes = await api.products.create(payload);
+      }
+      if (backendRes && backendRes.id) {
+        localItem.id = backendRes.id;
+        localItem.image = backendRes.image_url || localItem.image;
+        localItem.image_url = backendRes.image_url || localItem.image_url;
+        localItem._localModified = false;
+        store.saveMenuItem(localItem);
+        console.log("[MenuView] Product synced to backend database:", localItem.id, localItem.name);
+      }
+      renderView("menu");
+    } catch (err) {
+      console.warn("[MenuView] Backend save product notice (saved in local store):", err.message);
     }
-    closeMenuModal();
-    await store.loadMasterData();
-    renderView("menu");
-  } catch (err) {
-    console.error("[MenuView] Save Product Error:", err);
-    alert(err.message || "Failed to save product.");
   }
 }
 
