@@ -15,17 +15,10 @@ def seed_master_data():
     try:
         now = datetime.utcnow()
 
-        # Check if master data initialization has already run once
-        already_seeded = db["system_flags"].find_one({"key": "master_data_seeded"})
-        if already_seeded:
-            print("--> Master data already initialized in MongoDB. Skipping seed so user deletions and changes are preserved.")
-            return
-
-        print("--> First-time initial Master Data population into MongoDB...")
-
-        # 1. Users
-        if not db["users"].find_one({"username": "owner_dev"}):
-            db["users"].insert_one({
+        # 1. Always Ensure Master System Users exist
+        db["users"].update_one(
+            {"username": "owner_dev"},
+            {"$setOnInsert": {
                 "id": 1,
                 "name": "Store Owner (Dev)",
                 "username": "owner_dev",
@@ -34,11 +27,13 @@ def seed_master_data():
                 "active": True,
                 "created_at": now,
                 "updated_at": now
-            })
-            print("  [+] Added user: owner_dev (password: owner123)")
+            }},
+            upsert=True
+        )
 
-        if not db["users"].find_one({"username": "cashier_dev"}):
-            db["users"].insert_one({
+        db["users"].update_one(
+            {"username": "cashier_dev"},
+            {"$setOnInsert": {
                 "id": 2,
                 "name": "Front Cashier (Dev)",
                 "username": "cashier_dev",
@@ -47,8 +42,17 @@ def seed_master_data():
                 "active": True,
                 "created_at": now,
                 "updated_at": now
-            })
-            print("  [+] Added user: cashier_dev (password: cashier123)")
+            }},
+            upsert=True
+        )
+
+        # Check if master data initialization has already run once
+        already_seeded = db["system_flags"].find_one({"key": "master_data_seeded"})
+        if already_seeded:
+            print("--> Master system users verified. Skipping catalog seed.")
+            return
+
+        print("--> First-time initial Master Data population into MongoDB...")
 
         # 2. Suppliers
         suppliers_data = [

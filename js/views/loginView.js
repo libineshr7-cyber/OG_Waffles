@@ -237,7 +237,7 @@ async function handleLoginSubmit(e) {
         username: username || (isOwner ? 'owner_dev' : 'cashier_dev'),
         role: selectedRole
       };
-      api.setAuthSession('local_session_token_' + Date.now(), localUser);
+      api.setAuthSession('local_auth_valid_' + Date.now(), localUser);
       res = { success: true, user: localUser };
     }
 
