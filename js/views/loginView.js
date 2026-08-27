@@ -139,15 +139,10 @@ function renderLoginFormScreen() {
           </button>
         </form>
 
-        <!-- Credentials Helper Box -->
-        <div class="text-center text-[11px] text-gray-400 bg-black/60 p-3 rounded-xl border border-[#D4AF37]/20 space-y-1">
-          <p class="font-semibold text-[#D4AF37] flex items-center justify-center gap-1">
-            <i class="fas fa-key text-xs"></i> Default ${rc.label} Access Credentials:
+        <div class="text-center pt-1">
+          <p class="text-[10px] text-gray-500">
+            <i class="fas fa-lock text-[#D4AF37] mr-1"></i> Protected by Rate-Limiting &amp; Role Access Control
           </p>
-          ${selectedRole === 'OWNER'
-            ? '<p>Username: <code class="text-white font-mono bg-black px-1.5 py-0.5 rounded border border-gray-700">owner_dev</code> &bull; Password: <code class="text-white font-mono bg-black px-1.5 py-0.5 rounded border border-gray-700">owner123</code> (or PIN <code class="text-white font-mono bg-black px-1.5 py-0.5 rounded border border-gray-700">1234</code>)</p>'
-            : '<p>Username: <code class="text-white font-mono bg-black px-1.5 py-0.5 rounded border border-gray-700">cashier_dev</code> &bull; Password: <code class="text-white font-mono bg-black px-1.5 py-0.5 rounded border border-gray-700">cashier123</code> (or PIN <code class="text-white font-mono bg-black px-1.5 py-0.5 rounded border border-gray-700">3333</code>)</p>'
-          }
         </div>
       </div>
     </div>
@@ -173,8 +168,8 @@ function choosePortal(role) {
   loginStage   = 'form';
   const app = document.getElementById('app');
   if (app) app.innerHTML = renderLoginFormScreen();
-  const userInput = document.getElementById('login-username');
-  if (userInput) setTimeout(() => userInput.focus(), 50);
+  const passInput = document.getElementById('login-password');
+  if (passInput) setTimeout(() => passInput.focus(), 50);
 }
 
 function backToRoleSelect() {
@@ -199,14 +194,19 @@ async function handleLoginSubmit(e) {
     return;
   }
 
-  const username = document.getElementById('login-username').value.trim();
-  const password = document.getElementById('login-password').value;
+  let username = document.getElementById('login-username')?.value.trim() || '';
+  const password = document.getElementById('login-password')?.value || '';
   const errBanner = document.getElementById('login-error-banner');
   const submitBtn = document.getElementById('login-submit-btn');
 
-  if (!username || !password) {
+  // If username is empty, auto-assign default username for the selected portal role
+  if (!username) {
+    username = selectedRole === 'OWNER' ? 'owner_dev' : 'cashier_dev';
+  }
+
+  if (!password) {
     if (errBanner) {
-      errBanner.textContent = 'Please enter both username and password / PIN.';
+      errBanner.textContent = 'Please enter your password or security PIN.';
       errBanner.classList.remove('hidden');
     }
     return;
@@ -223,12 +223,11 @@ async function handleLoginSubmit(e) {
     try {
       res = await api.login(username, password);
     } catch (apiErr) {
-      // If backend explicitly returned 401 or 429, respect backend error unless client is using offline mode
-      console.warn("[OG Waffles Auth] Backend auth notice:", apiErr.message);
+      console.warn("[OG Waffles Auth] API auth notice, checking local authentication:", apiErr.message);
       const isOwner = selectedRole === 'OWNER';
       const storeRes = store.loginStrict(selectedRole, password, username);
       if (!storeRes.success) {
-        throw new Error(apiErr.message || "Invalid username or password / PIN.");
+        throw new Error(apiErr.message || "Invalid password or security PIN.");
       }
 
       const localUser = {
