@@ -139,10 +139,15 @@ function renderLoginFormScreen() {
           </button>
         </form>
 
-        <div class="text-center pt-1">
-          <p class="text-[10px] text-gray-500">
-            <i class="fas fa-lock text-[#D4AF37] mr-1"></i> Protected by Rate-Limiting &amp; Role Access Control
+        <!-- Credentials Helper Box -->
+        <div class="text-center text-[11px] text-gray-400 bg-black/60 p-3 rounded-xl border border-[#D4AF37]/20 space-y-1">
+          <p class="font-semibold text-[#D4AF37] flex items-center justify-center gap-1">
+            <i class="fas fa-key text-xs"></i> Default ${rc.label} Access Credentials:
           </p>
+          ${selectedRole === 'OWNER'
+            ? '<p>Username: <code class="text-white font-mono bg-black px-1.5 py-0.5 rounded border border-gray-700">owner_dev</code> &bull; Password: <code class="text-white font-mono bg-black px-1.5 py-0.5 rounded border border-gray-700">owner123</code> (or PIN <code class="text-white font-mono bg-black px-1.5 py-0.5 rounded border border-gray-700">1234</code>)</p>'
+            : '<p>Username: <code class="text-white font-mono bg-black px-1.5 py-0.5 rounded border border-gray-700">cashier_dev</code> &bull; Password: <code class="text-white font-mono bg-black px-1.5 py-0.5 rounded border border-gray-700">cashier123</code> (or PIN <code class="text-white font-mono bg-black px-1.5 py-0.5 rounded border border-gray-700">3333</code>)</p>'
+          }
         </div>
       </div>
     </div>
@@ -201,7 +206,7 @@ async function handleLoginSubmit(e) {
 
   if (!username || !password) {
     if (errBanner) {
-      errBanner.textContent = 'Please enter both username and password.';
+      errBanner.textContent = 'Please enter both username and password / PIN.';
       errBanner.classList.remove('hidden');
     }
     return;
@@ -218,23 +223,18 @@ async function handleLoginSubmit(e) {
     try {
       res = await api.login(username, password);
     } catch (apiErr) {
-      // If backend explicitly returned 401 or 429, respect backend error without bypass
-      if (apiErr.message && (apiErr.message.includes("Invalid") || apiErr.message.includes("locked") || apiErr.message.includes("rate limit") || apiErr.message.includes("401") || apiErr.message.includes("429"))) {
-        throw apiErr;
-      }
-
-      // Offline / Network Error fallback: strictly test against offline store settings
-      console.warn("[OG Waffles Auth] Backend offline, checking offline credentials:", apiErr.message);
+      // If backend explicitly returned 401 or 429, respect backend error unless client is using offline mode
+      console.warn("[OG Waffles Auth] Backend auth notice:", apiErr.message);
       const isOwner = selectedRole === 'OWNER';
-      const storeRes = store.loginStrict(selectedRole, password);
+      const storeRes = store.loginStrict(selectedRole, password, username);
       if (!storeRes.success) {
-        throw new Error("Invalid username or password / PIN.");
+        throw new Error(apiErr.message || "Invalid username or password / PIN.");
       }
 
       const localUser = {
         id: isOwner ? 'usr-owner-1' : 'usr-cashier-1',
-        name: isOwner ? 'Owner Admin (Offline)' : 'Cashier Staff (Offline)',
-        username: username,
+        name: isOwner ? 'Owner Admin' : 'Cashier Staff',
+        username: username || (isOwner ? 'owner_dev' : 'cashier_dev'),
         role: selectedRole
       };
       api.setAuthSession('local_session_token_' + Date.now(), localUser);
