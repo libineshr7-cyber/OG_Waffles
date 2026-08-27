@@ -47,6 +47,35 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response: Response = await call_next(request)
+        # Security hardening headers
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        # Content Security Policy configured for POS CDNs & APIs
+        csp = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
+            "font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com data:; "
+            "img-src 'self' data: blob: https:; "
+            "connect-src 'self' https: http:; "
+            "frame-ancestors 'self';"
+        )
+        response.headers["Content-Security-Policy"] = csp
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -72,19 +101,34 @@ app.include_router(upload_router)
 
 
 # ── Frontend Static Files Mounting ──
-repo_root = Path(__file__).resolve().parent.parent
-frontend_dir = repo_root / "og_waffles_pos_new"
-if not frontend_dir.exists():
-    frontend_dir = repo_root
+current_path = Path(__file__).resolve()
+candidate_roots = [
+    current_path.parent.parent.parent.parent,  # Workspace root (D:\OG_Waffles)
+    current_path.parent.parent.parent,         # og_waffles_pos_new
+    current_path.parent.parent,                # backend
+    Path.cwd()
+]
 
-assets_dir = repo_root / "assets"
-if (frontend_dir / "assets").exists():
-    assets_dir = frontend_dir / "assets"
+frontend_dir = None
+for root in candidate_roots:
+    if (root / "index.html").exists():
+        frontend_dir = root
+        break
+    if (root / "og_waffles_pos_new" / "index.html").exists():
+        frontend_dir = root / "og_waffles_pos_new"
+        break
 
-if (frontend_dir / "css").exists():
-    app.mount("/css", StaticFiles(directory=str(frontend_dir / "css")), name="css")
-if (frontend_dir / "js").exists():
-    app.mount("/js", StaticFiles(directory=str(frontend_dir / "js")), name="js")
+if not frontend_dir:
+    frontend_dir = Path.cwd()
+
+css_dir = frontend_dir / "css"
+js_dir = frontend_dir / "js"
+assets_dir = frontend_dir / "assets"
+
+if css_dir.exists():
+    app.mount("/css", StaticFiles(directory=str(css_dir)), name="css")
+if js_dir.exists():
+    app.mount("/js", StaticFiles(directory=str(js_dir)), name="js")
 if assets_dir.exists():
     app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
 

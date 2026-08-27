@@ -1,21 +1,80 @@
 let currentView = null; // active view id
 
 /* ─────────────────────────────────────────────────────────────────
+   SECURITY & HTML ESCAPE UTILITY
+   ───────────────────────────────────────────────────────────────── */
+const SecurityUtils = {
+  escapeHtml(str) {
+    if (typeof str !== 'string') return str;
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+};
+if (typeof window !== 'undefined') {
+  window.SecurityUtils = SecurityUtils;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   INACTIVITY AUTO-LOCK TIMER (30 MIN POS SECURITY STANDARD)
+   ───────────────────────────────────────────────────────────────── */
+let _inactivityTimer = null;
+const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
+function resetInactivityTimer() {
+  if (_inactivityTimer) clearTimeout(_inactivityTimer);
+  const user = typeof store !== 'undefined' && store.getState ? store.getState().currentUser : null;
+  if (!user) return;
+
+  _inactivityTimer = setTimeout(() => {
+    const activeUser = store.getState().currentUser;
+    if (activeUser) {
+      console.warn('[OG Waffles Security] Session timed out due to 30 minutes of inactivity.');
+      if (typeof api !== 'undefined') api.clearAuthSession();
+      if (typeof store !== 'undefined') store.logout();
+      currentView = 'login';
+      try { history.replaceState(null, '', '#login'); } catch (e) {}
+      renderCurrentApp();
+      setTimeout(() => {
+        const banner = document.getElementById('login-error-banner');
+        if (banner) {
+          banner.textContent = 'Session locked due to 30 minutes of inactivity for security. Please sign in again.';
+          banner.className = 'p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-xs text-center font-medium';
+          banner.classList.remove('hidden');
+        }
+      }, 100);
+    }
+  }, INACTIVITY_TIMEOUT_MS);
+}
+
+function setupInactivityTimer() {
+  const events = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll', 'click'];
+  events.forEach(evt => {
+    window.addEventListener(evt, resetInactivityTimer, { passive: true });
+  });
+  resetInactivityTimer();
+}
+
+/* ─────────────────────────────────────────────────────────────────
    ROLE PERMISSION MAP
    Single source of truth for what each role can access.
    ───────────────────────────────────────────────────────────────── */
 const ROLE_PERMISSIONS = {
   OWNER:   ["dashboard","pos","inventory","purchases","menu","expenses","reports","rewards","customers","todaysales","today-sales","staff","suppliers","waste","systemlogs","system-logs","settings"],
-  CASHIER: ["dashboard","pos","inventory","purchases","menu","expenses","reports","rewards","customers","todaysales","today-sales","staff","suppliers","waste","systemlogs","system-logs","settings"]
+  CASHIER: ["pos","todaysales","today-sales","customers","rewards","menu"]
 };
 
 function canAccess(role, view) {
-  const allowed = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.OWNER;
+  if (!role) return false;
+  const allowed = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.CASHIER;
   return allowed.includes(view);
 }
 
 function defaultViewForRole(role) {
-  return "dashboard";
+  return role === "CASHIER" ? "pos" : "dashboard";
 }
 
 /* ─────────────────────────────────────────────────────────────────
@@ -49,58 +108,71 @@ async function initApp() {
     }
   });
 
+  // POS Security Inactivity Timer
+  setupInactivityTimer();
+
   // ── Session Restoration (Local & Authoritative Backend) ──
-  try {
-    let localUser = null;
-    if (typeof api !== 'undefined') {
+  const initialHash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
+  let localUser = null;
+  const token = typeof api !== 'undefined' ? api.getToken() : null;
+
+  if (token && typeof api !== 'undefined') {
+    if (api.isTokenExpired && api.isTokenExpired(token)) {
+      api.clearAuthSession();
+      localUser = null;
+    } else {
       localUser = api.getCurrentUser();
     }
-    if (!localUser && store.getState().currentUser) {
-      localUser = store.getState().currentUser;
-    }
+  } else if (store.getState().currentUser) {
+    localUser = store.getState().currentUser;
+  }
 
-    // Auto-fallback default session so direct links like #dashboard always work seamlessly
-    if (!localUser || !localUser.role) {
-      localUser = {
-        id: "usr-owner-1",
-        name: "Owner Admin",
-        username: "owner_dev",
-        role: "OWNER"
-      };
-      if (typeof api !== 'undefined') {
-        api.setAuthSession("local_session_token", localUser);
-      }
+  // Mandatory Login Gate: If no valid authenticated session, redirect to login
+  if (!localUser || !localUser.role) {
+    if (initialHash && initialHash !== 'login' && initialHash !== '') {
+      try { sessionStorage.setItem('ogw_target_hash', initialHash); } catch(e) {}
     }
-
+    store.state.currentUser = null;
+    store.saveState();
+    currentView = 'login';
+    if (window.location.hash !== '#login') {
+      try { history.replaceState(null, '', '#login'); } catch (e) {}
+    }
+  } else {
+    // User is logged in
     store.state.currentUser = localUser;
     store.saveState();
 
-    // Background validation without clearing local state on sleeping backend
-    if (typeof api !== 'undefined' && api.getToken() && !api.getToken().startsWith('local_')) {
+    if (initialHash && canAccess(localUser.role, initialHash)) {
+      currentView = initialHash;
+    } else {
+      currentView = defaultViewForRole(localUser.role);
+      try { history.replaceState(null, '', '#' + currentView); } catch (e) {}
+    }
+
+    // Verify token with backend in background
+    if (typeof api !== 'undefined' && token && !token.startsWith('local_')) {
       api.fetchMe().then(validated => {
-        if (validated && validated.role) {
+        if (!validated) {
+          // Server rejected token
+          store.state.currentUser = null;
+          store.saveState();
+          currentView = 'login';
+          try { history.replaceState(null, '', '#login'); } catch (e) {}
+          renderCurrentApp();
+        } else {
           store.state.currentUser = validated;
           store.saveState();
           store.loadMasterData().catch(() => {});
         }
       }).catch(err => {
-        console.warn('[OG Waffles] Backend wake-up notice (retaining active local session):', err.message);
+        console.warn('[OG Waffles] Backend session check notice:', err.message);
       });
     }
-  } catch (sessionErr) {
-    console.warn('[OG Waffles] Session restoration notice:', sessionErr);
   }
 
-  // Hash route listener to redirect any customer or old routes
+  // Hash route listener
   window.addEventListener('hashchange', handleHashRouting);
-  
-  // Set initial view from hash if present, otherwise default to dashboard
-  const initialHash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
-  if (initialHash && (ROLE_PERMISSIONS.OWNER.includes(initialHash) || ROLE_PERMISSIONS.CASHIER.includes(initialHash))) {
-    currentView = initialHash;
-  } else {
-    currentView = 'dashboard';
-  }
 
   try {
     renderCurrentApp();
@@ -157,6 +229,16 @@ let _isNavigating = false;
 function handleHashRouting() {
   if (_isNavigating) return;
   const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
+  const user = store.getState().currentUser;
+
+  if (!user || !user.role) {
+    if (hash && hash !== 'login') {
+      try { sessionStorage.setItem('ogw_target_hash', hash); } catch(e) {}
+    }
+    navigate('login');
+    return;
+  }
+
   const customerRoutes = [
     'customer', 'home', 'website', 'online-order', 'checkout', 'cart',
     'portal', 'menu-site', 'promotions', 'account', 'order-online',
@@ -164,10 +246,10 @@ function handleHashRouting() {
   ];
   if (customerRoutes.includes(hash)) {
     try { history.replaceState(null, '', window.location.pathname); } catch (e) {}
-    const user = store.getState().currentUser;
-    navigate(user ? defaultViewForRole(user.role) : 'login');
+    navigate(defaultViewForRole(user.role));
     return;
   }
+
   if (hash && (ROLE_PERMISSIONS.OWNER.includes(hash) || ROLE_PERMISSIONS.CASHIER.includes(hash) || hash === 'login')) {
     if (currentView !== hash) {
       navigate(hash);
@@ -186,7 +268,7 @@ function renderCurrentApp() {
   const currentUser = state.currentUser;
 
   // ── 1. NOT LOGGED IN → LOGIN ─────────────────────────────────────
-  if (!currentUser) {
+  if (!currentUser || !currentUser.role) {
     currentView = "login";
     appContainer.innerHTML = renderLoginView();
     return;

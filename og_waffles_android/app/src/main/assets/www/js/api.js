@@ -25,9 +25,33 @@ const api = {
     }
   },
 
-  // ── 1. Storage Helpers ──
+  // ── 1. Storage Helpers & Token Lifecycle ──
   getToken() {
     return localStorage.getItem("ogw_access_token") || null;
+  },
+
+  isTokenExpired(token) {
+    if (!token) return true;
+    if (token.startsWith("local_")) return false;
+    try {
+      const parts = token.split(".");
+      if (parts.length !== 3) return false;
+      const base64Url = parts[1];
+      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split("")
+          .map(c => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+          .join("")
+      );
+      const payload = JSON.parse(jsonPayload);
+      if (payload.exp && payload.exp * 1000 < Date.now()) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
   },
 
   setAuthSession(token, user) {
@@ -36,8 +60,8 @@ const api = {
     }
     if (user) {
       const cleanUser = {
-        id: user.id,
-        name: user.name,
+        id: user.id || 1,
+        name: user.name || user.username || "User",
         username: user.username,
         role: user.role
       };
@@ -52,6 +76,7 @@ const api = {
   clearAuthSession() {
     localStorage.removeItem("ogw_access_token");
     localStorage.removeItem("ogw_user");
+    try { sessionStorage.removeItem("ogw_session"); } catch(e) {}
     if (typeof store !== "undefined" && store.state) {
       store.state.currentUser = null;
       store.saveState();
@@ -59,6 +84,11 @@ const api = {
   },
 
   getCurrentUser() {
+    const token = this.getToken();
+    if (!token || this.isTokenExpired(token)) {
+      if (token) this.clearAuthSession();
+      return null;
+    }
     const raw = localStorage.getItem("ogw_user");
     if (!raw) return null;
     try {
@@ -69,7 +99,8 @@ const api = {
   },
 
   isAuthenticated() {
-    return Boolean(this.getToken() && this.getCurrentUser());
+    const token = this.getToken();
+    return Boolean(token && !this.isTokenExpired(token) && this.getCurrentUser());
   },
 
   getRole() {
@@ -87,6 +118,10 @@ const api = {
 
     const token = this.getToken();
     if (token) {
+      if (this.isTokenExpired(token)) {
+        this.clearAuthSession();
+        throw new Error("Session expired. Please log in again.");
+      }
       headers["Authorization"] = `Bearer ${token}`;
     }
 
@@ -101,11 +136,15 @@ const api = {
       // Handle 401 Unauthorized: Session expired or invalid token
       if (response.status === 401) {
         console.warn("[OG Waffles API] 401 Unauthorized notice from", endpoint);
-        const currentTok = this.getToken();
-        if (currentTok && !currentTok.startsWith("local_")) {
-          this.clearAuthSession();
-        }
-        throw new Error("Session expired or unauthorized.");
+        this.clearAuthSession();
+        const errJson = await response.json().catch(() => ({ detail: "Invalid credentials or session expired." }));
+        throw new Error(errJson.detail || "Session expired or unauthorized.");
+      }
+
+      // Handle 429 Too Many Requests: Rate Limiting
+      if (response.status === 429) {
+        const errJson = await response.json().catch(() => ({ detail: "Too many requests. Please wait a moment." }));
+        throw new Error(errJson.detail || "Rate limit exceeded. Please try again later.");
       }
 
       // Handle 403 Forbidden: User does not have permission for this action
@@ -157,7 +196,8 @@ const api = {
 
   async fetchMe() {
     const token = this.getToken();
-    if (!token) {
+    if (!token || this.isTokenExpired(token)) {
+      this.clearAuthSession();
       return null;
     }
     if (token.startsWith("local_")) {
@@ -170,10 +210,12 @@ const api = {
         this.setAuthSession(token, user);
         return user;
       }
-      return this.getCurrentUser();
+      this.clearAuthSession();
+      return null;
     } catch (e) {
-      console.warn("[OG Waffles API] fetchMe background notice:", e.message);
-      return this.getCurrentUser();
+      console.warn("[OG Waffles API] fetchMe verification failed:", e.message);
+      this.clearAuthSession();
+      return null;
     }
   },
 

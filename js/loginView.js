@@ -2,6 +2,9 @@
 
 let selectedRole  = null;
 let loginStage    = 'select'; // 'select' | 'form'
+let _loginFailedAttempts = 0;
+let _loginLockoutUntil = 0;
+let _lockoutTimerInterval = null;
 
 function renderLoginView() {
   loginStage   = 'select';
@@ -55,6 +58,12 @@ function renderRoleSelectScreen() {
               <p class="text-[10px] text-gray-500 mt-0.5">Billing &amp; Customers</p>
             </div>
           </button>
+        </div>
+
+        <div class="pt-2 text-center">
+          <span class="text-[10px] text-gray-500 flex items-center justify-center gap-1.5">
+            <i class="fas fa-shield-alt text-[#D4AF37]"></i> Encrypted POS &amp; ERP Authentication Gate
+          </span>
         </div>
       </div>
     </div>
@@ -111,22 +120,46 @@ function renderLoginFormScreen() {
             <label class="block text-xs font-semibold text-gray-300 mb-1">
               Password / Security PIN
             </label>
-            <input id="login-password"
-              type="password"
-              required
-              autocomplete="current-password"
-              placeholder="••••••••"
-              autofocus
-              class="input-gold text-sm font-mono">
+            <div class="relative">
+              <input id="login-password"
+                type="password"
+                required
+                autocomplete="current-password"
+                placeholder="••••••••"
+                autofocus
+                class="input-gold text-sm font-mono pr-10">
+              <button type="button" onclick="togglePasswordVisibility()" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#D4AF37] focus:outline-none transition-colors" title="Toggle password visibility">
+                <i id="password-toggle-icon" class="fas fa-eye text-xs"></i>
+              </button>
+            </div>
           </div>
 
           <button id="login-submit-btn" type="submit" class="w-full btn-gold-solid py-3 text-sm">
             <i class="fas fa-sign-in-alt mr-1"></i> Access ${rc.label} Portal
           </button>
         </form>
+
+        <div class="text-center pt-1">
+          <p class="text-[10px] text-gray-500">
+            <i class="fas fa-lock text-[#D4AF37] mr-1"></i> Protected by Rate-Limiting &amp; Role Access Control
+          </p>
+        </div>
       </div>
     </div>
   `;
+}
+
+function togglePasswordVisibility() {
+  const passInput = document.getElementById('login-password');
+  const toggleIcon = document.getElementById('password-toggle-icon');
+  if (!passInput || !toggleIcon) return;
+  if (passInput.type === 'password') {
+    passInput.type = 'text';
+    toggleIcon.className = 'fas fa-eye-slash text-xs text-[#D4AF37]';
+  } else {
+    passInput.type = 'password';
+    toggleIcon.className = 'fas fa-eye text-xs text-gray-400';
+  }
 }
 
 function choosePortal(role) {
@@ -148,10 +181,31 @@ function backToRoleSelect() {
 
 async function handleLoginSubmit(e) {
   e.preventDefault();
+
+  // Client-side lockout check
+  const now = Date.now();
+  if (_loginLockoutUntil > now) {
+    const waitSecs = Math.ceil((_loginLockoutUntil - now) / 1000);
+    const errBanner = document.getElementById('login-error-banner');
+    if (errBanner) {
+      errBanner.textContent = `Too many failed attempts. Locked for security. Please try again in ${waitSecs}s.`;
+      errBanner.classList.remove('hidden');
+    }
+    return;
+  }
+
   const username = document.getElementById('login-username').value.trim();
   const password = document.getElementById('login-password').value;
   const errBanner = document.getElementById('login-error-banner');
   const submitBtn = document.getElementById('login-submit-btn');
+
+  if (!username || !password) {
+    if (errBanner) {
+      errBanner.textContent = 'Please enter both username and password.';
+      errBanner.classList.remove('hidden');
+    }
+    return;
+  }
 
   if (errBanner) errBanner.classList.add('hidden');
   if (submitBtn) {
@@ -164,48 +218,69 @@ async function handleLoginSubmit(e) {
     try {
       res = await api.login(username, password);
     } catch (apiErr) {
-      console.warn("[OG Waffles Auth] Backend auth notice (using local session):", apiErr.message);
-      const isOwner = selectedRole === 'OWNER';
-      const userLower = username.toLowerCase();
-      const validOwnerNames = ['owner', 'owner_dev', 'admin', 'ogadmin', 'ogwaffles', 'manager'];
-      const validCashierNames = ['cashier', 'cashier_dev', 'staff', 'pos', 'billing'];
-
-      const localStaff = (store.getState().staff || []).find(s => s.username?.toLowerCase() === userLower || s.name?.toLowerCase() === userLower);
-      const isRoleValid = localStaff ? (localStaff.role === selectedRole) : (isOwner ? (validOwnerNames.includes(userLower) || userLower.includes('owner') || userLower.includes('admin')) : true);
-
-      if (isRoleValid) {
-        const localUser = {
-          id: localStaff ? localStaff.id : (isOwner ? 'usr-owner-1' : 'usr-cashier-1'),
-          name: localStaff ? localStaff.name : (isOwner ? 'Owner' : 'Cashier'),
-          username: username,
-          role: selectedRole
-        };
-        api.setAuthSession('local_session_token_' + Date.now(), localUser);
-        res = { success: true, user: localUser };
-      } else {
+      // If backend explicitly returned 401 or 429, respect backend error without bypass
+      if (apiErr.message && (apiErr.message.includes("Invalid") || apiErr.message.includes("locked") || apiErr.message.includes("rate limit") || apiErr.message.includes("401") || apiErr.message.includes("429"))) {
         throw apiErr;
       }
+
+      // Offline / Network Error fallback: strictly test against offline store settings
+      console.warn("[OG Waffles Auth] Backend offline, checking offline credentials:", apiErr.message);
+      const isOwner = selectedRole === 'OWNER';
+      const storeRes = store.loginStrict(selectedRole, password);
+      if (!storeRes.success) {
+        throw new Error("Invalid username or password / PIN.");
+      }
+
+      const localUser = {
+        id: isOwner ? 'usr-owner-1' : 'usr-cashier-1',
+        name: isOwner ? 'Owner Admin (Offline)' : 'Cashier Staff (Offline)',
+        username: username,
+        role: selectedRole
+      };
+      api.setAuthSession('local_session_token_' + Date.now(), localUser);
+      res = { success: true, user: localUser };
     }
 
     // Verify backend role matches selected portal
     if (res.user.role !== selectedRole) {
       api.clearAuthSession();
-      throw new Error(`Role mismatch: Your account role is '${res.user.role}', but you selected '${selectedRole}'. Please select the correct portal.`);
+      throw new Error(`Role mismatch: Your account role is '${res.user.role}', but you selected '${selectedRole}' portal.`);
     }
+
+    // Reset failed attempts upon successful login
+    _loginFailedAttempts = 0;
+    _loginLockoutUntil = 0;
 
     // Attempt to sync backend master data
     try {
       await store.loadMasterData();
     } catch (e) {}
 
-    // Success -> Navigate to role landing view
-    if (res.user.role === 'CASHIER') {
-      navigate('pos');
+    // Check for deep-link / post-login redirect
+    let targetHash = null;
+    try {
+      targetHash = sessionStorage.getItem('ogw_target_hash');
+      sessionStorage.removeItem('ogw_target_hash');
+    } catch(e) {}
+
+    if (targetHash && canAccess(res.user.role, targetHash) && targetHash !== 'login') {
+      navigate(targetHash);
     } else {
-      navigate('dashboard');
+      if (res.user.role === 'CASHIER') {
+        navigate('pos');
+      } else {
+        navigate('dashboard');
+      }
     }
   } catch (err) {
     console.error('[OG Waffles Auth Error]', err);
+    _loginFailedAttempts++;
+
+    // Client-side lockout trigger on 5 consecutive failures
+    if (_loginFailedAttempts >= 5) {
+      _loginLockoutUntil = Date.now() + 60000; // 60s lockout
+    }
+
     if (errBanner) {
       errBanner.textContent = err.message || 'Login failed. Please check your credentials.';
       errBanner.classList.remove('hidden');
@@ -216,8 +291,8 @@ async function handleLoginSubmit(e) {
     const passInput = document.getElementById('login-password');
     if (passInput) {
       passInput.value = '';
-      passInput.classList.add('border-red-500');
-      setTimeout(() => passInput.classList.remove('border-red-500'), 2000);
+      passInput.classList.add('border-red-500', 'animate-pulse');
+      setTimeout(() => passInput.classList.remove('border-red-500', 'animate-pulse'), 1500);
       passInput.focus();
     }
   } finally {
@@ -227,4 +302,5 @@ async function handleLoginSubmit(e) {
     }
   }
 }
+
 
