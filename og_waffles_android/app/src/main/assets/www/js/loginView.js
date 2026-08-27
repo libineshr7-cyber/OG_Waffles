@@ -73,8 +73,8 @@ function renderRoleSelectScreen() {
 // ─── Stage 2: Login Form (Backend Auth) ───────────────────────────
 function renderLoginFormScreen() {
   const roleColors = {
-    OWNER:   { icon: 'fa-crown',         color: 'text-[#D4AF37]',  border: 'border-[#D4AF37]/50', badge: 'bg-[#D4AF37]/10', label: 'OWNER', defaultUser: 'owner_dev' },
-    CASHIER: { icon: 'fa-cash-register', color: 'text-emerald-400',border: 'border-emerald-500/40',badge: 'bg-emerald-500/10',label: 'CASHIER', defaultUser: 'cashier_dev' }
+    OWNER:   { icon: 'fa-crown',         color: 'text-[#D4AF37]',  border: 'border-[#D4AF37]/50', badge: 'bg-[#D4AF37]/10', label: 'OWNER' },
+    CASHIER: { icon: 'fa-cash-register', color: 'text-emerald-400',border: 'border-emerald-500/40',badge: 'bg-emerald-500/10',label: 'CASHIER' }
   };
   const rc = roleColors[selectedRole] || roleColors.OWNER;
 
@@ -110,9 +110,10 @@ function renderLoginFormScreen() {
             <input id="login-username"
               type="text"
               required
-              value="${rc.defaultUser}"
+              value=""
               autocomplete="username"
-              placeholder="Username"
+              placeholder="Enter your username"
+              autofocus
               class="input-gold text-sm">
           </div>
 
@@ -126,7 +127,6 @@ function renderLoginFormScreen() {
                 required
                 autocomplete="current-password"
                 placeholder="••••••••"
-                autofocus
                 class="input-gold text-sm font-mono pr-10">
               <button type="button" onclick="togglePasswordVisibility()" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#D4AF37] focus:outline-none transition-colors" title="Toggle password visibility">
                 <i id="password-toggle-icon" class="fas fa-eye text-xs"></i>
@@ -168,8 +168,8 @@ function choosePortal(role) {
   loginStage   = 'form';
   const app = document.getElementById('app');
   if (app) app.innerHTML = renderLoginFormScreen();
-  const pass = document.getElementById('login-password');
-  if (pass) setTimeout(() => pass.focus(), 50);
+  const userInput = document.getElementById('login-username');
+  if (userInput) setTimeout(() => userInput.focus(), 50);
 }
 
 function backToRoleSelect() {
